@@ -43,7 +43,15 @@ class SpeedControlManager {
     private init() {}
     
     func attachToProcess(pid: pid_t) -> Bool {
-        detachFromProcess()
+        // 如果已经连接到同一个进程，不做任何操作
+        if targetPID == pid && isConnected {
+            return true
+        }
+        
+        // 只有连接到不同进程时才断开
+        if targetPID != pid {
+            detachFromProcess()
+        }
         
         targetPID = pid
         

@@ -38,9 +38,9 @@ class AppLauncherViewModel: ObservableObject {
     func selectProcess(_ process: LaunchedProcess?) {
         selectedLaunchedProcess = process
         if let process = process {
-            _ = speedControlManager.attachToProcess(pid: process.pid)
+            let success = speedControlManager.attachToProcess(pid: process.pid)
             if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
-                launchedProcesses[index].isSharedMemoryConnected = true
+                launchedProcesses[index].isSharedMemoryConnected = success
             }
         } else {
             speedControlManager.detachFromProcess()
