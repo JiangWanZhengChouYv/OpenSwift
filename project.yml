@@ -34,8 +34,11 @@ targets:
         CODE_SIGN_ENTITLEMENTS: OpenSpeedy/OpenSpeedy.entitlements
     dependencies:
       - target: SpeedPatch
-        embed: false
-        link: false
+        embed: true
+        codeSign: false
+        copy:
+          destination: plugins
+          subpath: "SpeedPatch"
 
   SpeedPatch:
     type: bundle
@@ -59,4 +62,3 @@ targets:
           - "-Wl,-no_warn_duplicate_libraries"
         CLANG_ENABLE_MODULES: YES
         SWIFT_OBJC_BRIDGING_HEADER: ""
-
