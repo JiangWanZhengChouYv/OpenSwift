@@ -49,7 +49,7 @@ struct FirstLaunchView: View {
         FirstLaunchStep(
             icon: "checkmark.circle.fill",
             title: "开始使用",
-            description: "您已经准备好开始使用 OpenSpeedy 了！",
+            description: "您已经准备好开始使用 OpenSwift 了！",
             features: [
                 "点击下方按钮开始",
                 "选择应用启动并加速",

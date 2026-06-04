@@ -147,7 +147,7 @@ class SettingsStorage {
     }
     
     func reset() {
-        let domain = Bundle.main.bundleIdentifier ?? "com.openspeedy.app"
+        let domain = Bundle.main.bundleIdentifier ?? "com.openswift.app"
         defaults.removePersistentDomain(forName: domain)
         defaults.synchronize()
         

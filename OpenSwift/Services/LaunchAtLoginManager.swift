@@ -31,7 +31,7 @@ class LaunchAtLoginManager {
     }
     
     private static func setLaunchAtLoginLegacy(enabled: Bool) {
-        let identifier = "com.openspeedy.app" as CFString
+        let identifier = "com.openswift.app" as CFString
         
         if !SMLoginItemSetEnabled(identifier, enabled) {
             #if DEBUG
@@ -55,7 +55,7 @@ class LaunchAtLoginManager {
     }
     
     private static func isLaunchAtLoginEnabledLegacy() -> Bool {
-        let identifier = "com.openspeedy.app" as CFString
+        let identifier = "com.openswift.app" as CFString
         return SMLoginItemSetEnabled(identifier, false)
     }
     

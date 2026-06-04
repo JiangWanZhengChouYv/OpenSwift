@@ -48,7 +48,7 @@ class ProcessInjector {
     static let shared = ProcessInjector()
     
     private var injectedPIDs: Set<pid_t> = []
-    private let injectQueue = DispatchQueue(label: "com.openspeedy.injector", qos: .userInitiated)
+    private let injectQueue = DispatchQueue(label: "com.openswift.injector", qos: .userInitiated)
     
     private init() {}
     

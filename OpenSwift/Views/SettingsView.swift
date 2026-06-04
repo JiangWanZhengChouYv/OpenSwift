@@ -561,7 +561,7 @@ struct AboutSettingsView: View {
                     Text("关于")
                         .font(.system(size: 14, weight: .semibold))
                     
-                    Text("OpenSpeedy 是一个强大的 macOS 进程速度控制工具，允许您实时调整任何进程的运行速度。")
+                    Text("OpenSwift 是一个强大的 macOS 进程速度控制工具，允许您实时调整任何进程的运行速度。")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

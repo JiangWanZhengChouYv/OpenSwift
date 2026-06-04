@@ -123,7 +123,7 @@ class AppLauncher {
         
         // 调试路径：在开发时指向 DerivedData
         let debugPaths = [
-            "/Users/markzhang/Library/Developer/Xcode/DerivedData/OpenSpeedy-ftrsxyspywcnxndyhlaiysacwqrv/Build/Products/Debug/SpeedPatch.dylib",
+            "/Users/markzhang/Library/Developer/Xcode/DerivedData/OpenSwift-ftrsxyspywcnxndyhlaiysacwqrv/Build/Products/Debug/SpeedPatch.dylib",
             "/usr/lib/SpeedPatch.dylib",
             "/usr/local/lib/SpeedPatch.dylib"
         ]

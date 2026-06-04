@@ -20,7 +20,7 @@ class ProcessManager: ObservableObject {
     private let processHistory = ProcessHistory.shared
     private let appSettings = AppSettings.shared
     
-    private let cleanupQueue = DispatchQueue(label: "com.openspeedy.cleanup", qos: .utility)
+    private let cleanupQueue = DispatchQueue(label: "com.openswift.cleanup", qos: .utility)
     
     private var lastRefreshTime: Date = .distantPast
     private let minimumRefreshInterval: TimeInterval = 1.0
