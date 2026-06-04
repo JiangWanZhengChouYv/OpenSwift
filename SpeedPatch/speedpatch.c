@@ -17,7 +17,7 @@
 
 #include "fishhook.h"
 
-#define SHARED_MEMORY_KEY_PREFIX "com.openspeedy.speedpatch."
+#define SHARED_MEMORY_KEY_PREFIX "com.openswift.speedpatch."
 #define SHARED_MEMORY_SIZE 4096
 
 typedef struct {
@@ -51,26 +51,33 @@ static bool speedpatch_init_shared_memory(void) {
     
     snprintf(shm_key, key_length, "%s%u", SHARED_MEMORY_KEY_PREFIX, g_own_pid);
     
-    shm_unlink(shm_key);
+    // 先尝试打开已存在的共享内存
+    g_shm_fd = shm_open(shm_key, O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
     
-    g_shm_fd = shm_open(shm_key, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    // 如果打开失败，创建新的
     if (g_shm_fd == -1) {
-        fprintf(stderr, "[SpeedPatch] Failed to create shared memory: %s\n", strerror(errno));
-        free(shm_key);
-        return false;
+        printf("[SpeedPatch] Shared memory not found, creating new one\n");
+        g_shm_fd = shm_open(shm_key, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+        if (g_shm_fd == -1) {
+            fprintf(stderr, "[SpeedPatch] Failed to create shared memory: %s\n", strerror(errno));
+            free(shm_key);
+            return false;
+        }
+        
+        // 设置共享内存大小
+        if (ftruncate(g_shm_fd, SHARED_MEMORY_SIZE) == -1) {
+            fprintf(stderr, "[SpeedPatch] Failed to set shared memory size: %s\n", strerror(errno));
+            close(g_shm_fd);
+            g_shm_fd = -1;
+            free(shm_key);
+            return false;
+        }
     }
     
-    if (ftruncate(g_shm_fd, SHARED_MEMORY_SIZE) == -1) {
-        fprintf(stderr, "[SpeedPatch] Failed to set shared memory size: %s\n", strerror(errno));
-        close(g_shm_fd);
-        g_shm_fd = -1;
-        free(shm_key);
-        return false;
-    }
-    
+    // 映射共享内存
     g_shared_memory = (SharedMemoryHeader*)mmap(NULL, SHARED_MEMORY_SIZE,
-                                                  PROT_READ | PROT_WRITE, MAP_SHARED,
-                                                  g_shm_fd, 0);
+                                               PROT_READ | PROT_WRITE, MAP_SHARED,
+                                               g_shm_fd, 0);
     if (g_shared_memory == MAP_FAILED) {
         fprintf(stderr, "[SpeedPatch] Failed to map shared memory: %s\n", strerror(errno));
         close(g_shm_fd);
@@ -79,13 +86,15 @@ static bool speedpatch_init_shared_memory(void) {
         return false;
     }
     
-    memset(g_shared_memory, 0, sizeof(SharedMemoryHeader));
-    g_shared_memory->version = CURRENT_VERSION;
-    g_shared_memory->speed_ratio = DEFAULT_SPEED_RATIO;
-    g_shared_memory->is_active = false;
-    g_shared_memory->timestamp = (uint64_t)time(NULL);
-    
-    msync(g_shared_memory, SHARED_MEMORY_SIZE, MS_SYNC);
+    // 仅在需要时初始化
+    if (g_shared_memory->version == 0) {
+        memset(g_shared_memory, 0, sizeof(SharedMemoryHeader));
+        g_shared_memory->version = CURRENT_VERSION;
+        g_shared_memory->speed_ratio = DEFAULT_SPEED_RATIO;
+        g_shared_memory->is_active = false;
+        g_shared_memory->timestamp = (uint64_t)time(NULL);
+        msync(g_shared_memory, SHARED_MEMORY_SIZE, MS_SYNC);
+    }
     
     free(shm_key);
     

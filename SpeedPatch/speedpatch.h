@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define SHARED_MEMORY_KEY_PREFIX "com.openspeedy.speedpatch."
+#define SHARED_MEMORY_KEY_PREFIX "com.openswift.speedpatch."
 
 #define MIN_SPEED_RATIO 0.1f
 #define MAX_SPEED_RATIO 10.0f
