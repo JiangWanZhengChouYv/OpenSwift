@@ -13,15 +13,30 @@ class SpeedControlManager {
     private let maxSpeedRatio: Float = 10.0
     private let defaultSpeedRatio: Float = 1.0
     
+    var isConnected: Bool {
+        return sharedMemoryPointer != nil && sharedMemoryFD != -1
+    }
+    
     struct SharedMemoryHeader {
         var version: UInt32 = 0
         var speed_ratio: Float = 1.0
-        var is_active: Bool = false
+        var is_active: UInt8 = 0
         var timestamp: UInt64 = 0
-        var reserved: [UInt8] = Array(repeating: 0, count: 56)
+        var reserved: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+                      UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) = (
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0
+        )
         
         static var size: Int {
-            return MemoryLayout<SharedMemoryHeader>.size
+            return MemoryLayout<SharedMemoryHeader>.stride
         }
     }
     
@@ -116,7 +131,7 @@ class SpeedControlManager {
         var header = SharedMemoryHeader(
             version: 1,
             speed_ratio: defaultSpeedRatio,
-            is_active: false,
+            is_active: 0,
             timestamp: UInt64(Date().timeIntervalSince1970)
         )
         
@@ -126,20 +141,17 @@ class SpeedControlManager {
     }
     
     func setSpeedRatio(_ ratio: Float) -> Bool {
-        guard let pointer = sharedMemoryPointer else {
-            print("[SpeedControlManager] Shared memory not initialized")
+        guard isConnected, let pointer = sharedMemoryPointer else {
+            print("[SpeedControlManager] Not connected, cannot set speed ratio")
             return false
         }
         
         let clampedRatio = min(max(ratio, minSpeedRatio), maxSpeedRatio)
         
-        var header = SharedMemoryHeader()
-        memcpy(&header, pointer, SharedMemoryHeader.size)
-        
-        header.speed_ratio = clampedRatio
-        header.timestamp = UInt64(Date().timeIntervalSince1970)
-        
-        memcpy(pointer, &header, SharedMemoryHeader.size)
+        pointer.withMemoryRebound(to: SharedMemoryHeader.self, capacity: 1) { header in
+            header.pointee.speed_ratio = clampedRatio
+            header.pointee.timestamp = UInt64(Date().timeIntervalSince1970)
+        }
         
         msync(pointer, SharedMemoryHeader.size, MS_SYNC)
         
@@ -159,18 +171,15 @@ class SpeedControlManager {
     }
     
     func setEnabled(_ enabled: Bool) -> Bool {
-        guard let pointer = sharedMemoryPointer else {
-            print("[SpeedControlManager] Shared memory not initialized")
+        guard isConnected, let pointer = sharedMemoryPointer else {
+            print("[SpeedControlManager] Not connected, cannot set enabled")
             return false
         }
         
-        var header = SharedMemoryHeader()
-        memcpy(&header, pointer, SharedMemoryHeader.size)
-        
-        header.is_active = enabled
-        header.timestamp = UInt64(Date().timeIntervalSince1970)
-        
-        memcpy(pointer, &header, SharedMemoryHeader.size)
+        pointer.withMemoryRebound(to: SharedMemoryHeader.self, capacity: 1) { header in
+            header.pointee.is_active = enabled ? 1 : 0
+            header.pointee.timestamp = UInt64(Date().timeIntervalSince1970)
+        }
         
         msync(pointer, SharedMemoryHeader.size, MS_SYNC)
         
@@ -186,25 +195,22 @@ class SpeedControlManager {
         var header = SharedMemoryHeader()
         memcpy(&header, pointer, SharedMemoryHeader.size)
         
-        return header.is_active
+        return header.is_active != 0
     }
     
     func setSpeedRatioAndEnabled(ratio: Float, enabled: Bool) -> Bool {
-        guard let pointer = sharedMemoryPointer else {
-            print("[SpeedControlManager] Shared memory not initialized")
+        guard isConnected, let pointer = sharedMemoryPointer else {
+            print("[SpeedControlManager] Not connected, cannot set speed ratio and enabled")
             return false
         }
         
         let clampedRatio = min(max(ratio, minSpeedRatio), maxSpeedRatio)
         
-        var header = SharedMemoryHeader()
-        memcpy(&header, pointer, SharedMemoryHeader.size)
-        
-        header.speed_ratio = clampedRatio
-        header.is_active = enabled
-        header.timestamp = UInt64(Date().timeIntervalSince1970)
-        
-        memcpy(pointer, &header, SharedMemoryHeader.size)
+        pointer.withMemoryRebound(to: SharedMemoryHeader.self, capacity: 1) { header in
+            header.pointee.speed_ratio = clampedRatio
+            header.pointee.is_active = enabled ? 1 : 0
+            header.pointee.timestamp = UInt64(Date().timeIntervalSince1970)
+        }
         
         msync(pointer, SharedMemoryHeader.size, MS_SYNC)
         
@@ -220,7 +226,7 @@ class SpeedControlManager {
         var header = SharedMemoryHeader()
         memcpy(&header, pointer, SharedMemoryHeader.size)
         
-        return (header.speed_ratio, header.is_active)
+        return (header.speed_ratio, header.is_active != 0)
     }
     
     deinit {
