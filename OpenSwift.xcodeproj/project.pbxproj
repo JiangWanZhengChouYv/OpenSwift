@@ -1,0 +1,642 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		000029D0F108A835C300C548 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69949A870FA6837434FC2860 /* Extensions.swift */; };
+		06B3EEF8E9ED7D3639E3A5C9 /* SpeedControlManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73D3889334990585D403BB2 /* SpeedControlManager.swift */; };
+		10F5E24C621DCE31368A4D8A /* InjectionProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6CE3F3CCE566C428CA9501 /* InjectionProtocol.swift */; };
+		16252B2112BEC62A7648C355 /* SpeedControlState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31825A5E7B70550F85F2FD0E /* SpeedControlState.swift */; };
+		1B5515E4F47488F75EBF64DD /* SpeedInputField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F794786425CB5346DAB5F56 /* SpeedInputField.swift */; };
+		1F5340D9A726522BF0C93CE7 /* AppSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F6A6FA8D956172755DE27D /* AppSelectorView.swift */; };
+		27534C6F6678DB69D7C7C749 /* SettingsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6755943A22B87C3FE3CB5AE4 /* SettingsStorage.swift */; };
+		28A10980F68CC658F723B095 /* ProcessControlCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F54734186D9E200F06937A /* ProcessControlCard.swift */; };
+		2FEB84BC894B8C1BB6D1E273 /* ConfigurationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5B0D4C8F4289F62912F8E5 /* ConfigurationManager.swift */; };
+		33B356BA7A303760DD87FE3B /* SpeedControlPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5082DC9117D4CEA375ADCF45 /* SpeedControlPanel.swift */; };
+		3917D09703F4CD7025E58104 /* SpeedToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6484389A999439694849BA18 /* SpeedToggle.swift */; };
+		3F08DA628B29DCF8A17620BB /* HotkeyStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2167D34F571E75B068D682 /* HotkeyStorage.swift */; };
+		4D9B73DF65443C4D8186976A /* FirstLaunchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5DE42AF11B0123181443E3 /* FirstLaunchView.swift */; };
+		529F81EF730CD7A23419BE0F /* build.sh in Resources */ = {isa = PBXBuildFile; fileRef = 9BE7FF6696C27163B5E31FC1 /* build.sh */; };
+		56BD64D86A99C46F73BDA3D2 /* AppLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE837FAF69AA805B70144DD1 /* AppLauncher.swift */; };
+		5ADDB67D5B2AD483D0D4CDFF /* AppLauncherViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C445297A2FACB0716F7FEFC6 /* AppLauncherViewModel.swift */; };
+		5BA99B372C926335042E5D31 /* speedpatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 105B4F88826D161E413929A3 /* speedpatch.c */; };
+		616D82BB46386FE8D73BF2D8 /* ProcessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF929DF96BE30B3E28BB60B /* ProcessManager.swift */; };
+		61BA2116B4ADCBA53C638A65 /* SpeedIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BFC3C8615E68CFDC1BC511F /* SpeedIndicator.swift */; };
+		66E25095C7941FCD97CE8364 /* fishhook.c in Sources */ = {isa = PBXBuildFile; fileRef = 5CFF939C3E6AA53C8C9E939F /* fishhook.c */; };
+		68A43E97BB5284D26F057331 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9CC1A876BD73E6139A80B6 /* LaunchAtLoginManager.swift */; };
+		6C48824D039167B607DCAA80 /* SpeedSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35BBB9C2274D0A898E3E7E5D /* SpeedSliderView.swift */; };
+		702F02773698FD3A6CEC139B /* InjectedProcess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DC8FCF50703E633AF5A3A98 /* InjectedProcess.swift */; };
+		7E36D50F2C3638C135FA4CC1 /* ProcessInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 480BE7AA80E201FBF848BA9C /* ProcessInjector.swift */; };
+		7FEC8802FE036EAA0EAB9406 /* HotkeySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77714C1938EDE4A300290B0C /* HotkeySettingsView.swift */; };
+		829AE3CDD7093514EAAC4F9D /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2379486075F6335186212E7E /* HotkeyRecorderView.swift */; };
+		88B4DD4DF08F62276E354B10 /* LaunchedProcessCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F2E72C92672A1EEEB30CAA /* LaunchedProcessCard.swift */; };
+		9867C3A17A265E79C40E3D7F /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85A7BABC4214C996618842F /* main.swift */; };
+		9F025B4553EE8917B6C9F9C6 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0504D67FCB15C306E9666954 /* MenuBarController.swift */; };
+		A0DBB70C04714679BEE3312C /* ProcessRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F798BB7B4AB4BCF744EBCC3 /* ProcessRowView.swift */; };
+		A68357D50859A4C866F92BEC /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5FB0AAA274041AA3850EAC /* GlobalHotkeyManager.swift */; };
+		BA4CEB531718320EFE630F2A /* HotkeyConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F21C527E20157C335D27F27 /* HotkeyConfiguration.swift */; };
+		C1CE45C45441F0E7C9BED4CF /* QuickSpeedButtons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C2F8EC142123DC60C52B74 /* QuickSpeedButtons.swift */; };
+		C299A995887D8E8DC3FB1DC1 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A3D6D511A837AF62AD1F1A7 /* AppSettings.swift */; };
+		C3CB2B52EBD74EE3E635181C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3575F1AAB477EFF0278B77 /* SettingsView.swift */; };
+		CBE3149C0A232DCB2AF62464 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 034064B7AC0402CDD912357B /* ContentView.swift */; };
+		DCE7FF5786B7A0C60ABD71B9 /* ProcessListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBB178F8B6F3CFD5666A8365 /* ProcessListView.swift */; };
+		DD63D7B4EE8E2E77229C91D7 /* OpenSwiftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8FBD87605022CA92098DF3 /* OpenSwiftApp.swift */; };
+		EDCEB421A391A9371B56D48A /* SpeedPatch.bundle in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = EA00A0D9696FE9AC2FBF166D /* SpeedPatch.bundle */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F8BB68D2B6F9C294214C53AF /* ProcessInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A982A998F7D049CDE35B3BBA /* ProcessInfo.swift */; };
+		FB8C92FF9AA2DD269E2311C6 /* HotkeyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1576FE8738797FBE794B1627 /* HotkeyService.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		F2242AFDDD41DAB5A6D3ADEF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 16914050C56F8C51549905BC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E20157930F09307F76FAB58B;
+			remoteInfo = SpeedPatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5A98ACA03E942AAC55A00EC7 /* Embed Dependencies */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = SpeedPatch;
+			dstSubfolderSpec = 13;
+			files = (
+				EDCEB421A391A9371B56D48A /* SpeedPatch.bundle in Embed Dependencies */,
+			);
+			name = "Embed Dependencies";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		034064B7AC0402CDD912357B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		0504D67FCB15C306E9666954 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		09F6A6FA8D956172755DE27D /* AppSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSelectorView.swift; sourceTree = "<group>"; };
+		0A3D6D511A837AF62AD1F1A7 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		0F21C527E20157C335D27F27 /* HotkeyConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConfiguration.swift; sourceTree = "<group>"; };
+		0FF929DF96BE30B3E28BB60B /* ProcessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessManager.swift; sourceTree = "<group>"; };
+		105B4F88826D161E413929A3 /* speedpatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = speedpatch.c; sourceTree = "<group>"; };
+		1576FE8738797FBE794B1627 /* HotkeyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyService.swift; sourceTree = "<group>"; };
+		20C7E1D15D70BF01B1AF198F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		2379486075F6335186212E7E /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
+		27F2E72C92672A1EEEB30CAA /* LaunchedProcessCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchedProcessCard.swift; sourceTree = "<group>"; };
+		2E6CE3F3CCE566C428CA9501 /* InjectionProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjectionProtocol.swift; sourceTree = "<group>"; };
+		2F2167D34F571E75B068D682 /* HotkeyStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyStorage.swift; sourceTree = "<group>"; };
+		31825A5E7B70550F85F2FD0E /* SpeedControlState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedControlState.swift; sourceTree = "<group>"; };
+		35BBB9C2274D0A898E3E7E5D /* SpeedSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedSliderView.swift; sourceTree = "<group>"; };
+		3BFC3C8615E68CFDC1BC511F /* SpeedIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedIndicator.swift; sourceTree = "<group>"; };
+		3F798BB7B4AB4BCF744EBCC3 /* ProcessRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRowView.swift; sourceTree = "<group>"; };
+		480BE7AA80E201FBF848BA9C /* ProcessInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessInjector.swift; sourceTree = "<group>"; };
+		4F794786425CB5346DAB5F56 /* SpeedInputField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedInputField.swift; sourceTree = "<group>"; };
+		5082DC9117D4CEA375ADCF45 /* SpeedControlPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedControlPanel.swift; sourceTree = "<group>"; };
+		5B8FBD87605022CA92098DF3 /* OpenSwiftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSwiftApp.swift; sourceTree = "<group>"; };
+		5CFF939C3E6AA53C8C9E939F /* fishhook.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fishhook.c; sourceTree = "<group>"; };
+		5D5FB0AAA274041AA3850EAC /* GlobalHotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotkeyManager.swift; sourceTree = "<group>"; };
+		5DC8FCF50703E633AF5A3A98 /* InjectedProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InjectedProcess.swift; sourceTree = "<group>"; };
+		6484389A999439694849BA18 /* SpeedToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedToggle.swift; sourceTree = "<group>"; };
+		6755943A22B87C3FE3CB5AE4 /* SettingsStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStorage.swift; sourceTree = "<group>"; };
+		69949A870FA6837434FC2860 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		6B35EB0094B3383D2C86A09E /* OpenSwift.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenSwift.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74C2F8EC142123DC60C52B74 /* QuickSpeedButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickSpeedButtons.swift; sourceTree = "<group>"; };
+		77714C1938EDE4A300290B0C /* HotkeySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeySettingsView.swift; sourceTree = "<group>"; };
+		8A3575F1AAB477EFF0278B77 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		8A5B0D4C8F4289F62912F8E5 /* ConfigurationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationManager.swift; sourceTree = "<group>"; };
+		9BE7FF6696C27163B5E31FC1 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
+		A982A998F7D049CDE35B3BBA /* ProcessInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessInfo.swift; sourceTree = "<group>"; };
+		B5D0A6397B91E9F3B7CE9800 /* OpenSwift.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenSwift.entitlements; sourceTree = "<group>"; };
+		B73D3889334990585D403BB2 /* SpeedControlManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedControlManager.swift; sourceTree = "<group>"; };
+		B8F54734186D9E200F06937A /* ProcessControlCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessControlCard.swift; sourceTree = "<group>"; };
+		C445297A2FACB0716F7FEFC6 /* AppLauncherViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLauncherViewModel.swift; sourceTree = "<group>"; };
+		CBB178F8B6F3CFD5666A8365 /* ProcessListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessListView.swift; sourceTree = "<group>"; };
+		CD9CC1A876BD73E6139A80B6 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
+		D85A7BABC4214C996618842F /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		D8B08C4C1299262433BCA02C /* fishhook.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fishhook.h; sourceTree = "<group>"; };
+		DE5DE42AF11B0123181443E3 /* FirstLaunchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstLaunchView.swift; sourceTree = "<group>"; };
+		DE837FAF69AA805B70144DD1 /* AppLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLauncher.swift; sourceTree = "<group>"; };
+		EA00A0D9696FE9AC2FBF166D /* SpeedPatch.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpeedPatch.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA9DE7B4DEE75E288390F343 /* SpeedPatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpeedPatch.entitlements; sourceTree = "<group>"; };
+		EC601EC7D84500B264295811 /* speedpatch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = speedpatch.h; sourceTree = "<group>"; };
+		EF28B38473F7B8B8219B2BBD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2A9B7CF1964FB60FA97BF593 = {
+			isa = PBXGroup;
+			children = (
+				946EE5872D822C4890A69DEF /* OpenSwift */,
+				8D6548A683EDD038F2F9A9DC /* SpeedPatch */,
+				CC48516BFD4C3188EC139281 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		84223B44F17F095690BF38ED /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				0F21C527E20157C335D27F27 /* HotkeyConfiguration.swift */,
+				5DC8FCF50703E633AF5A3A98 /* InjectedProcess.swift */,
+				A982A998F7D049CDE35B3BBA /* ProcessInfo.swift */,
+				31825A5E7B70550F85F2FD0E /* SpeedControlState.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		8D6548A683EDD038F2F9A9DC /* SpeedPatch */ = {
+			isa = PBXGroup;
+			children = (
+				9BE7FF6696C27163B5E31FC1 /* build.sh */,
+				5CFF939C3E6AA53C8C9E939F /* fishhook.c */,
+				D8B08C4C1299262433BCA02C /* fishhook.h */,
+				20C7E1D15D70BF01B1AF198F /* Info.plist */,
+				105B4F88826D161E413929A3 /* speedpatch.c */,
+				EA9DE7B4DEE75E288390F343 /* SpeedPatch.entitlements */,
+				EC601EC7D84500B264295811 /* speedpatch.h */,
+			);
+			path = SpeedPatch;
+			sourceTree = "<group>";
+		};
+		8EBA5A0DDAD10295AEF3FFAF /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D85A7BABC4214C996618842F /* main.swift */,
+				5B8FBD87605022CA92098DF3 /* OpenSwiftApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		946EE5872D822C4890A69DEF /* OpenSwift */ = {
+			isa = PBXGroup;
+			children = (
+				EF28B38473F7B8B8219B2BBD /* Info.plist */,
+				B5D0A6397B91E9F3B7CE9800 /* OpenSwift.entitlements */,
+				8EBA5A0DDAD10295AEF3FFAF /* App */,
+				F65C81A783E43E296CD77A1F /* Extensions */,
+				84223B44F17F095690BF38ED /* Models */,
+				ACC41424F2C2B10A54869511 /* Services */,
+				F7E7B929658A5C4871258A62 /* Views */,
+			);
+			path = OpenSwift;
+			sourceTree = "<group>";
+		};
+		ACC41424F2C2B10A54869511 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				DE837FAF69AA805B70144DD1 /* AppLauncher.swift */,
+				C445297A2FACB0716F7FEFC6 /* AppLauncherViewModel.swift */,
+				0A3D6D511A837AF62AD1F1A7 /* AppSettings.swift */,
+				8A5B0D4C8F4289F62912F8E5 /* ConfigurationManager.swift */,
+				5D5FB0AAA274041AA3850EAC /* GlobalHotkeyManager.swift */,
+				1576FE8738797FBE794B1627 /* HotkeyService.swift */,
+				2F2167D34F571E75B068D682 /* HotkeyStorage.swift */,
+				2E6CE3F3CCE566C428CA9501 /* InjectionProtocol.swift */,
+				CD9CC1A876BD73E6139A80B6 /* LaunchAtLoginManager.swift */,
+				0504D67FCB15C306E9666954 /* MenuBarController.swift */,
+				480BE7AA80E201FBF848BA9C /* ProcessInjector.swift */,
+				0FF929DF96BE30B3E28BB60B /* ProcessManager.swift */,
+				6755943A22B87C3FE3CB5AE4 /* SettingsStorage.swift */,
+				B73D3889334990585D403BB2 /* SpeedControlManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		CC48516BFD4C3188EC139281 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6B35EB0094B3383D2C86A09E /* OpenSwift.app */,
+				EA00A0D9696FE9AC2FBF166D /* SpeedPatch.bundle */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F65C81A783E43E296CD77A1F /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				69949A870FA6837434FC2860 /* Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		F7E7B929658A5C4871258A62 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				09F6A6FA8D956172755DE27D /* AppSelectorView.swift */,
+				034064B7AC0402CDD912357B /* ContentView.swift */,
+				DE5DE42AF11B0123181443E3 /* FirstLaunchView.swift */,
+				2379486075F6335186212E7E /* HotkeyRecorderView.swift */,
+				77714C1938EDE4A300290B0C /* HotkeySettingsView.swift */,
+				27F2E72C92672A1EEEB30CAA /* LaunchedProcessCard.swift */,
+				B8F54734186D9E200F06937A /* ProcessControlCard.swift */,
+				CBB178F8B6F3CFD5666A8365 /* ProcessListView.swift */,
+				3F798BB7B4AB4BCF744EBCC3 /* ProcessRowView.swift */,
+				74C2F8EC142123DC60C52B74 /* QuickSpeedButtons.swift */,
+				8A3575F1AAB477EFF0278B77 /* SettingsView.swift */,
+				5082DC9117D4CEA375ADCF45 /* SpeedControlPanel.swift */,
+				3BFC3C8615E68CFDC1BC511F /* SpeedIndicator.swift */,
+				4F794786425CB5346DAB5F56 /* SpeedInputField.swift */,
+				35BBB9C2274D0A898E3E7E5D /* SpeedSliderView.swift */,
+				6484389A999439694849BA18 /* SpeedToggle.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A4FC925808AE60B24EE8FEB2 /* OpenSwift */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E4DF6C1CA18846435D7A4E32 /* Build configuration list for PBXNativeTarget "OpenSwift" */;
+			buildPhases = (
+				75AF15C74B0D10C6AA712002 /* Sources */,
+				5A98ACA03E942AAC55A00EC7 /* Embed Dependencies */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C6A99A4EB41CF340C060F86E /* PBXTargetDependency */,
+			);
+			name = OpenSwift;
+			packageProductDependencies = (
+			);
+			productName = OpenSwift;
+			productReference = 6B35EB0094B3383D2C86A09E /* OpenSwift.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E20157930F09307F76FAB58B /* SpeedPatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9E0CB6E155DF464A8897F0BD /* Build configuration list for PBXNativeTarget "SpeedPatch" */;
+			buildPhases = (
+				8C9797B8053A9FD35BB82322 /* Sources */,
+				960F5F08C7DAB09E987C4402 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SpeedPatch;
+			packageProductDependencies = (
+			);
+			productName = SpeedPatch;
+			productReference = EA00A0D9696FE9AC2FBF166D /* SpeedPatch.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		16914050C56F8C51549905BC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A4FC925808AE60B24EE8FEB2 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+					E20157930F09307F76FAB58B = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = B3731BFAB22C2C4440321928 /* Build configuration list for PBXProject "OpenSwift" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 2A9B7CF1964FB60FA97BF593;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CC48516BFD4C3188EC139281 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A4FC925808AE60B24EE8FEB2 /* OpenSwift */,
+				E20157930F09307F76FAB58B /* SpeedPatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		960F5F08C7DAB09E987C4402 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				529F81EF730CD7A23419BE0F /* build.sh in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		75AF15C74B0D10C6AA712002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				56BD64D86A99C46F73BDA3D2 /* AppLauncher.swift in Sources */,
+				5ADDB67D5B2AD483D0D4CDFF /* AppLauncherViewModel.swift in Sources */,
+				1F5340D9A726522BF0C93CE7 /* AppSelectorView.swift in Sources */,
+				C299A995887D8E8DC3FB1DC1 /* AppSettings.swift in Sources */,
+				2FEB84BC894B8C1BB6D1E273 /* ConfigurationManager.swift in Sources */,
+				CBE3149C0A232DCB2AF62464 /* ContentView.swift in Sources */,
+				000029D0F108A835C300C548 /* Extensions.swift in Sources */,
+				4D9B73DF65443C4D8186976A /* FirstLaunchView.swift in Sources */,
+				A68357D50859A4C866F92BEC /* GlobalHotkeyManager.swift in Sources */,
+				BA4CEB531718320EFE630F2A /* HotkeyConfiguration.swift in Sources */,
+				829AE3CDD7093514EAAC4F9D /* HotkeyRecorderView.swift in Sources */,
+				FB8C92FF9AA2DD269E2311C6 /* HotkeyService.swift in Sources */,
+				7FEC8802FE036EAA0EAB9406 /* HotkeySettingsView.swift in Sources */,
+				3F08DA628B29DCF8A17620BB /* HotkeyStorage.swift in Sources */,
+				702F02773698FD3A6CEC139B /* InjectedProcess.swift in Sources */,
+				10F5E24C621DCE31368A4D8A /* InjectionProtocol.swift in Sources */,
+				68A43E97BB5284D26F057331 /* LaunchAtLoginManager.swift in Sources */,
+				88B4DD4DF08F62276E354B10 /* LaunchedProcessCard.swift in Sources */,
+				9F025B4553EE8917B6C9F9C6 /* MenuBarController.swift in Sources */,
+				DD63D7B4EE8E2E77229C91D7 /* OpenSwiftApp.swift in Sources */,
+				28A10980F68CC658F723B095 /* ProcessControlCard.swift in Sources */,
+				F8BB68D2B6F9C294214C53AF /* ProcessInfo.swift in Sources */,
+				7E36D50F2C3638C135FA4CC1 /* ProcessInjector.swift in Sources */,
+				DCE7FF5786B7A0C60ABD71B9 /* ProcessListView.swift in Sources */,
+				616D82BB46386FE8D73BF2D8 /* ProcessManager.swift in Sources */,
+				A0DBB70C04714679BEE3312C /* ProcessRowView.swift in Sources */,
+				C1CE45C45441F0E7C9BED4CF /* QuickSpeedButtons.swift in Sources */,
+				27534C6F6678DB69D7C7C749 /* SettingsStorage.swift in Sources */,
+				C3CB2B52EBD74EE3E635181C /* SettingsView.swift in Sources */,
+				06B3EEF8E9ED7D3639E3A5C9 /* SpeedControlManager.swift in Sources */,
+				33B356BA7A303760DD87FE3B /* SpeedControlPanel.swift in Sources */,
+				16252B2112BEC62A7648C355 /* SpeedControlState.swift in Sources */,
+				61BA2116B4ADCBA53C638A65 /* SpeedIndicator.swift in Sources */,
+				1B5515E4F47488F75EBF64DD /* SpeedInputField.swift in Sources */,
+				6C48824D039167B607DCAA80 /* SpeedSliderView.swift in Sources */,
+				3917D09703F4CD7025E58104 /* SpeedToggle.swift in Sources */,
+				9867C3A17A265E79C40E3D7F /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C9797B8053A9FD35BB82322 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				66E25095C7941FCD97CE8364 /* fishhook.c in Sources */,
+				5BA99B372C926335042E5D31 /* speedpatch.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C6A99A4EB41CF340C060F86E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E20157930F09307F76FAB58B /* SpeedPatch */;
+			targetProxy = F2242AFDDD41DAB5A6D3ADEF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2D168B944474FACB18C83149 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SpeedPatch/SpeedPatch.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_DSYM_FILE = NO;
+				INFOPLIST_FILE = SpeedPatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACH_O_TYPE = mh_dylib;
+				OTHER_LDFLAGS = (
+					"-dynamiclib",
+					"-Wl,-no_warn_duplicate_libraries",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac.SpeedPatch;
+				PRODUCT_NAME = SpeedPatch;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				WRAPPER_EXTENSION = dylib;
+			};
+			name = Debug;
+		};
+		461F6401F566575CDE55E3C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenSwift/OpenSwift.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OpenSwift/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac;
+				PRODUCT_NAME = OpenSwift;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		476E3F9507AD3DEBFD32F80E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenSwift/OpenSwift.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = OpenSwift/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac;
+				PRODUCT_NAME = OpenSwift;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		56BC4A26B2CEB7DDC28985E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		6F36B6185745D47DF642C804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = SpeedPatch/SpeedPatch.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_DSYM_FILE = NO;
+				INFOPLIST_FILE = SpeedPatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACH_O_TYPE = mh_dylib;
+				OTHER_LDFLAGS = (
+					"-dynamiclib",
+					"-Wl,-no_warn_duplicate_libraries",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac.SpeedPatch;
+				PRODUCT_NAME = SpeedPatch;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				WRAPPER_EXTENSION = dylib;
+			};
+			name = Release;
+		};
+		E5E1413D9391ADF82546BA84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9E0CB6E155DF464A8897F0BD /* Build configuration list for PBXNativeTarget "SpeedPatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D168B944474FACB18C83149 /* Debug */,
+				6F36B6185745D47DF642C804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B3731BFAB22C2C4440321928 /* Build configuration list for PBXProject "OpenSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E5E1413D9391ADF82546BA84 /* Debug */,
+				56BC4A26B2CEB7DDC28985E7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E4DF6C1CA18846435D7A4E32 /* Build configuration list for PBXNativeTarget "OpenSwift" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				476E3F9507AD3DEBFD32F80E /* Debug */,
+				461F6401F566575CDE55E3C4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 16914050C56F8C51549905BC /* Project object */;
+}
