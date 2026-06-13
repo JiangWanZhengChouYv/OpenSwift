@@ -434,9 +434,11 @@
 				INFOPLIST_FILE = OpenSwift/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
 				PRODUCT_NAME = OpenSwift;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				WRAPPER_EXTENSION = app;
 			};
 			name = Release;
 		};
@@ -449,9 +451,11 @@
 				INFOPLIST_FILE = OpenSwift/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.openswift.mac;
+				PRODUCT_BUNDLE_PACKAGE_TYPE = APPL;
 				PRODUCT_NAME = OpenSwift;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
 		};
