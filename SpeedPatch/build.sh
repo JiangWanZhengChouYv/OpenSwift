@@ -18,14 +18,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-gcc -dynamiclib -o libSpeedPatch.dylib speedpatch.o fishhook.o -framework CoreFoundation 2>&1
+gcc -dynamiclib -o SpeedPatch.dylib speedpatch.o fishhook.o -framework CoreFoundation 2>&1
 if [ $? -ne 0 ]; then
     echo "Failed to link SpeedPatch DYLIB"
     rm -f speedpatch.o fishhook.o
     exit 1
 fi
 
+# ad-hoc 签名 (macOS 需要签名才能被 DYLD_INSERT_LIBRARIES 注入)
+codesign --force --sign - SpeedPatch.dylib 2>&1
+
 rm -f speedpatch.o fishhook.o
 
-echo "Build successful: libSpeedPatch.dylib"
-ls -lh libSpeedPatch.dylib
+echo "Build successful: SpeedPatch.dylib"
+ls -lh SpeedPatch.dylib

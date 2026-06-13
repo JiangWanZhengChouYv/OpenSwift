@@ -109,8 +109,8 @@ class AppLauncher {
     
     func getDylibPath() -> String? {
         print("[AppLauncher] 查找 SpeedPatch.dylib...")
-        
-        // 优先查找应用包内的路径
+
+        // 第一优先级: 应用包内路径 (发布后 dylib 会打包在 .app 内)
         let bundlePaths = [
             Bundle.main.bundleURL
                 .appendingPathComponent("Contents/PlugIns/SpeedPatch/SpeedPatch.dylib")
@@ -120,23 +120,32 @@ class AppLauncher {
                 .path,
             Bundle.main.bundleURL.appendingPathComponent("SpeedPatch.dylib").path
         ]
-        
-        // 调试路径：在开发时指向 DerivedData
-        let debugPaths = [
-            "/Users/markzhang/Library/Developer/Xcode/DerivedData/OpenSwift-ftrsxyspywcnxndyhlaiysacwqrv/Build/Products/Debug/SpeedPatch.dylib",
+
+        // 第二优先级: 项目源码目录 (开发时最常用)
+        let sourcePaths = [
+            "/Users/markzhang/Documents/OpenSpeedy-Mac/SpeedPatch/SpeedPatch.dylib"
+        ]
+
+        // 第三优先级: DerivedData (Xcode 编译产物)
+        let derivedDataPaths = [
+            "/Users/markzhang/Library/Developer/Xcode/DerivedData/OpenSwift-ftrsxyspywcnxndyhlaiysacwqrv/Build/Products/Debug/SpeedPatch.dylib"
+        ]
+
+        // 最终 fallback: 系统标准路径
+        let fallbackPaths = [
             "/usr/lib/SpeedPatch.dylib",
             "/usr/local/lib/SpeedPatch.dylib"
         ]
-        
-        let allPaths = bundlePaths + debugPaths
-        
+
+        let allPaths = bundlePaths + sourcePaths + derivedDataPaths + fallbackPaths
+
         for path in allPaths {
             if FileManager.default.fileExists(atPath: path) {
                 print("[AppLauncher] ✅ 找到 SpeedPatch.dylib: \(path)")
                 return path
             }
         }
-        
+
         print("[AppLauncher] ❌ 未找到 SpeedPatch.dylib")
         print("[AppLauncher] 已搜索的路径:")
         for path in allPaths {
