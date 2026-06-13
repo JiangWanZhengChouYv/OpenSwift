@@ -8,21 +8,24 @@
 #include <stdint.h>
 #include <time.h>
 #include <errno.h>
-#include <os/lock.h>
 
 #define SHARED_MEMORY_KEY_PREFIX "com.openswift.speedpatch."
 #define SHARED_MEMORY_SIZE 4096
 
-// 与 Swift/C 端相同的布局
+// 魔术数字，用于验证共享内存已正确初始化
+#define SPDM_MAGIC 0x5350444D
+#define SPDM_VERSION 1
+
+// 与 Swift/C 端相同的布局（无锁，原子读写）
 typedef struct {
-    os_unfair_lock lock;
+    uint32_t magic;
     uint32_t version;
     uint32_t owner_pid;
-    float speed_ratio;
-    uint8_t is_active;
-    uint8_t padding[7];
+    float    speed_ratio;
+    uint8_t  is_active;
+    uint8_t  padding[7];
     uint64_t timestamp;
-    uint8_t reserved[40];
+    uint8_t  reserved[40];
 } SharedMemoryHeader;
 
 int main(int argc, char *argv[]) {
@@ -67,8 +70,29 @@ int main(int argc, char *argv[]) {
     printf("✅ Shared memory mapped at %p\n", header);
     printf("\n");
 
-    // 读取当前状态（先不加锁，后加锁验证）
+    // 验证 magic number，确保内存布局正确
+    printf("=== Magic Number Verification ===\n");
+    printf("magic:        0x%08X (expected: 0x%08X)\n", header->magic, SPDM_MAGIC);
+    if (header->magic != SPDM_MAGIC) {
+        printf("⚠️  Magic mismatch! Shared memory may not be initialized.\n");
+        printf("    Initializing shared memory...\n");
+        memset(header, 0, sizeof(SharedMemoryHeader));
+        header->magic = SPDM_MAGIC;
+        header->version = SPDM_VERSION;
+        header->owner_pid = (uint32_t)target_pid;
+        header->speed_ratio = 1.0f;
+        header->is_active = 0;
+        header->timestamp = (uint64_t)time(NULL);
+        msync(header, SHARED_MEMORY_SIZE, MS_SYNC);
+        printf("✅ Shared memory initialized.\n");
+    } else {
+        printf("✅ Magic number matches\n");
+    }
+    printf("\n");
+
+    // 读取当前状态（无锁原子读取）
     printf("=== Current State (before modification) ===\n");
+    printf("magic:       0x%08X\n", header->magic);
     printf("version:     %u\n", header->version);
     printf("owner_pid:   %u\n", header->owner_pid);
     printf("speed_ratio: %.2f\n", header->speed_ratio);
@@ -76,25 +100,20 @@ int main(int argc, char *argv[]) {
     printf("timestamp:   %llu\n", (unsigned long long)header->timestamp);
     printf("\n");
 
-    // 加锁，修改状态
+    // 修改状态（无锁原子写入）
     printf("=== Modifying State ===\n");
-    os_unfair_lock_lock(&header->lock);
     header->speed_ratio = ratio;
     header->is_active = enable ? 1 : 0;
     header->timestamp = (uint64_t)time(NULL);
-    os_unfair_lock_unlock(&header->lock);
-
     msync(header, SHARED_MEMORY_SIZE, MS_SYNC);
     printf("✅ Wrote new state to shared memory\n");
     printf("\n");
 
-    // 加锁读取，验证一致性
-    printf("=== Verification (locked read) ===\n");
-    os_unfair_lock_lock(&header->lock);
+    // 读取验证（无锁原子读取）
+    printf("=== Verification ===\n");
     float r_ratio = header->speed_ratio;
     uint8_t r_active = header->is_active;
     uint32_t r_owner = header->owner_pid;
-    os_unfair_lock_unlock(&header->lock);
 
     printf("speed_ratio read back: %.2f\n", r_ratio);
     printf("is_active read back:   %u\n", r_active);
@@ -131,13 +150,11 @@ int main(int argc, char *argv[]) {
     printf("Press Ctrl+C to exit, or wait.\n");
     printf("\n");
 
-    // 保持连接，让用户观察 TestApp 的输出变化
+    // 保持连接，让用户观察 TestApp 的输出变化（无锁原子读取）
     for (int i = 0; i < 5; i++) {
         sleep(1);
-        os_unfair_lock_lock(&header->lock);
         float live_ratio = header->speed_ratio;
         uint8_t live_active = header->is_active;
-        os_unfair_lock_unlock(&header->lock);
         printf("  [%d] live: speed_ratio=%.2f, is_active=%u\n", i + 1, live_ratio, live_active);
     }
 

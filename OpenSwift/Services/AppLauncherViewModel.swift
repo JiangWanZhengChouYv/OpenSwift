@@ -65,14 +65,42 @@ class AppLauncherViewModel: ObservableObject {
     }
     
     func updateSpeed(_ speed: Double, for process: LaunchedProcess) {
-        _ = SpeedControlManager.shared.setSpeedRatio(Float(speed))
+        // 确保已连接到目标进程，如果没有则尝试连接
+        let manager = SpeedControlManager.shared
+        if !manager.isConnected {
+            let success = manager.attachToProcess(pid: process.pid)
+            if !success {
+                print("[AppLauncherViewModel] Failed to attach to process \(process.pid) before setting speed")
+                return
+            }
+        }
+
+        let success = manager.setSpeedRatio(Float(speed))
+        if !success {
+            print("[AppLauncherViewModel] Failed to set speed ratio \(speed) for PID \(process.pid)")
+        }
+
         if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
             launchedProcesses[index].currentSpeed = speed
         }
     }
     
     func toggleSpeedControl(_ enabled: Bool, for process: LaunchedProcess) {
-        _ = SpeedControlManager.shared.setEnabled(enabled)
+        // 确保已连接到目标进程，如果没有则尝试连接
+        let manager = SpeedControlManager.shared
+        if !manager.isConnected {
+            let success = manager.attachToProcess(pid: process.pid)
+            if !success {
+                print("[AppLauncherViewModel] Failed to attach to process \(process.pid) before toggling speed control")
+                return
+            }
+        }
+
+        let success = manager.setEnabled(enabled)
+        if !success {
+            print("[AppLauncherViewModel] Failed to set enabled=\(enabled) for PID \(process.pid)")
+        }
+
         if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
             launchedProcesses[index].isSpeedControlEnabled = enabled
         }

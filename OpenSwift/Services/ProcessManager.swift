@@ -231,7 +231,13 @@ class ProcessManager: ObservableObject {
     func updateInjectedProcess(pid: pid_t, speedRatio: Double) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].speedRatio = speedRatio
-            SpeedControlManager.shared.setSpeedRatio(Float(speedRatio))
+
+            let manager = SpeedControlManager.shared
+            if !manager.isConnected {
+                _ = manager.attachToProcess(pid: pid)
+            }
+            _ = manager.setSpeedRatio(Float(speedRatio))
+
             log("Updated speed ratio to \(speedRatio) for PID \(pid)", level: .debug)
         }
     }
@@ -239,7 +245,13 @@ class ProcessManager: ObservableObject {
     func updateInjectedProcess(pid: pid_t, isEnabled: Bool) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].isEnabled = isEnabled
-            SpeedControlManager.shared.setEnabled(isEnabled)
+
+            let manager = SpeedControlManager.shared
+            if !manager.isConnected {
+                _ = manager.attachToProcess(pid: pid)
+            }
+            _ = manager.setEnabled(isEnabled)
+
             log("Updated enabled state to \(isEnabled) for PID \(pid)", level: .debug)
         }
     }
