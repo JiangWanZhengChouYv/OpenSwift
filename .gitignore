@@ -77,3 +77,7 @@ SpeedPatch/*.d
 
 # 忽略所有 md 文档 (按需取消注释)
 # *.md
+
+# 其他可能的忽略项
+/任务板.md
+/Console.md
