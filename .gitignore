@@ -1,2 +1,79 @@
-.trae/
+# ===== OpenSpeedy-Mac .gitignore =====
+
+# ========== 通用 ==========
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode 用户数据和工作区
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode 构建产物
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift 编译缓存
+*.swp
+*~
+
+# 临时文件
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# macOS 系统文件
+.AppleDouble
+.LSOverride
+
+# Trae IDE
+.trae/
+
+# 项目文档 (按需取消注释)
+# 任务板.md
+# Console.md
+
+# ===== OpenSpeedy-Mac 特定文件 =====
+
+# 二进制文件
+*.dylib
+*.so
+*.a
+*.o
+*.obj
+*.exe
+*.app
+
+# 测试应用构建产物
+TestApp/build/
+TestApp/*.o
+TestApp/*.dylib
+TestApp/speed_test
+TestApp/testapp
+TestApp/test_injection.sh
+
+# SpeedPatch 构建产物
+SpeedPatch/*.o
+SpeedPatch/*.d
+
+# 签名证书和密钥 (绝对不要提交)
+*.p12
+*.cer
+*.mobileprovision
+
+# 用户特定的配置
+*.local
+*.secret
+
+# 忽略所有 md 文档 (按需取消注释)
+# *.md
