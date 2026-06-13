@@ -133,8 +133,17 @@ class ProcessHistory: ObservableObject {
     
     private let maxHistoryCount = 100
     private let persistenceKey = "ProcessHistory"
+    private var isSetup: Bool = false
     
     private init() {
+        // init 只做最轻量操作
+        // 所有重操作延迟到 setup()
+    }
+    
+    // 由 AppDelegate 在窗口显示后调用
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
         loadFromDisk()
     }
     

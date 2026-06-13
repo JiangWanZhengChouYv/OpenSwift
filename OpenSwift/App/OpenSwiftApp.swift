@@ -58,6 +58,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         HotkeyService.shared.setup()
         SpeedControlState.shared.setup()
         AppLauncherViewModel.shared.setup()
+        AppLauncher.shared.setup()
+        ProcessHistory.shared.setup()
+        ProcessManagerProvider.shared.manager.setup()
         
         setupMenu()
         setupWindowDelegate()

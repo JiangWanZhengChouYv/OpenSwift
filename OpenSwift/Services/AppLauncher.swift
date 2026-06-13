@@ -88,8 +88,19 @@ class AppLauncher {
     private var launchedProcesses: [LaunchedProcess] = []
     private let launchQueue = DispatchQueue(label: "com.openswift.applauncher", qos: .userInitiated)
     private var processObserver: NSObjectProtocol?
+    private var isSetup: Bool = false
     
     private init() {
+        // init 只做最轻量操作，不访问任何其他 singleton
+        // 所有重操作延迟到 setup()
+        print("[AppLauncher] 初始化 (lightweight)")
+    }
+    
+    // 由 AppDelegate 调用或在首次使用时自动初始化
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
+        
         processObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
@@ -98,7 +109,7 @@ class AppLauncher {
             self?.handleProcessTermination(notification)
         }
         
-        print("[AppLauncher] 初始化完成")
+        print("[AppLauncher] setup complete")
     }
     
     deinit {

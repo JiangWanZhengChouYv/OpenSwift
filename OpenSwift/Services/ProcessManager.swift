@@ -15,10 +15,7 @@ class ProcessManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     private var processObserver: NSObjectProtocol?
-    private let injector = ProcessInjector.shared
-    private let speedControlManager = SpeedControlManager.shared
-    private let processHistory = ProcessHistory.shared
-    private let appSettings = AppSettings.shared
+    private var isSetup: Bool = false
     
     private let cleanupQueue = DispatchQueue(label: "com.openswift.cleanup", qos: .utility)
     
@@ -39,6 +36,16 @@ class ProcessManager: ObservableObject {
     }
     
     init() {
+        // init 只做最轻量操作，不访问任何其他 singleton
+        // 所有重操作延迟到 setup()，由 AppDelegate 在窗口显示后调用
+        log("ProcessManager initialized (lightweight)")
+    }
+    
+    // 由 AppDelegate 在窗口显示后调用
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
+        
         processObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
@@ -51,7 +58,7 @@ class ProcessManager: ObservableObject {
         refreshProcesses()
         loadSavedGroups()
         
-        log("Initializing ProcessManager")
+        log("ProcessManager setup complete")
     }
     
     deinit {
@@ -166,7 +173,7 @@ class ProcessManager: ObservableObject {
         
         let dylibPath = "/usr/lib/SpeedPatch.dylib"
         
-        let result = injector.inject(pid: process.pid, dylibPath: dylibPath)
+        let result = ProcessInjector.shared.inject(pid: process.pid, dylibPath: dylibPath)
         
         switch result {
         case .success:
@@ -178,9 +185,9 @@ class ProcessManager: ObservableObject {
             )
             
             injectedProcesses.append(injectedProcess)
-            processHistory.addToHistory(injectedProcess)
+            ProcessHistory.shared.addToHistory(injectedProcess)
             
-            if let lastSpeed = processHistory.getLastSpeedRatio(for: process.pid) {
+            if let lastSpeed = ProcessHistory.shared.getLastSpeedRatio(for: process.pid) {
                 updateInjectedProcess(pid: process.pid, speedRatio: lastSpeed)
             }
             
@@ -195,7 +202,7 @@ class ProcessManager: ObservableObject {
     func removeInjectedProcess(_ injected: InjectedProcess) {
         log("Removing injected process: \(injected.processInfo.name) (PID: \(injected.pid))")
         
-        let result = injector.eject(pid: injected.pid)
+        let result = ProcessInjector.shared.eject(pid: injected.pid)
         
         switch result {
         case .success:
@@ -224,7 +231,7 @@ class ProcessManager: ObservableObject {
     func updateInjectedProcess(pid: pid_t, speedRatio: Double) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].speedRatio = speedRatio
-            speedControlManager.setSpeedRatio(Float(speedRatio))
+            SpeedControlManager.shared.setSpeedRatio(Float(speedRatio))
             log("Updated speed ratio to \(speedRatio) for PID \(pid)", level: .debug)
         }
     }
@@ -232,7 +239,7 @@ class ProcessManager: ObservableObject {
     func updateInjectedProcess(pid: pid_t, isEnabled: Bool) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].isEnabled = isEnabled
-            speedControlManager.setEnabled(isEnabled)
+            SpeedControlManager.shared.setEnabled(isEnabled)
             log("Updated enabled state to \(isEnabled) for PID \(pid)", level: .debug)
         }
     }
@@ -397,7 +404,7 @@ class ProcessManager: ObservableObject {
     }
     
     func validateInjection(pid: pid_t) -> Bool {
-        return injector.isInjected(pid: pid)
+        return ProcessInjector.shared.isInjected(pid: pid)
     }
     
     private func saveGroups() {
