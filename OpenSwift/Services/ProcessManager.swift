@@ -269,7 +269,7 @@ class ProcessManager: ObservableObject {
         log("Cleaning up all injected processes")
         
         for injected in injectedProcesses {
-            let _ = injector.eject(pid: injected.pid)
+            let _ = ProcessInjector.shared.eject(pid: injected.pid)
             cleanupSharedMemory(for: injected.pid)
         }
         
