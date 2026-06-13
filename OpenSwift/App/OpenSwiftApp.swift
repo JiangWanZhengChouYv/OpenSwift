@@ -2,50 +2,81 @@ import AppKit
 import SwiftUI
 import Combine
 
+// 关键修复: applicationDidFinishLaunching 中按正确顺序初始化
+// 1. 先激活应用
+// 2. 立即显示窗口 (这是最重要的)
+// 3. 然后在主线程异步初始化其他组件 (singletons, timer 等)
+//
+// 注意: AppDelegate 的 let 属性是在 init 时初始化的，这可能会触发 singleton 循环
+// 所以把所有 singleton 引用移到方法内懒加载
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindow: NSWindow?
-    private let appSettings = AppSettings.shared
-    private let menuBarController = MenuBarController.shared
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        menuBarController.setup()
+        print("[AppDelegate] applicationDidFinishLaunching - START")
         
-        if appSettings.hotkeyEnabled {
-            HotkeyService.shared.registerHotkeys()
-        }
+        // 第一步: 激活应用到前台
+        NSApp.activate(ignoringOtherApps: true)
         
+        // 第二步: 立即创建并显示窗口
         let contentView = ContentView()
-        
-        mainWindow = NSWindow(
+        let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        mainWindow?.center()
-        mainWindow?.title = "OpenSwift"
-        mainWindow?.contentView = NSHostingView(rootView: contentView)
-        mainWindow?.makeKeyAndOrderFront(nil)
+        window.center()
+        window.title = "OpenSwift"
+        window.isHidden = false
+        window.contentView = NSHostingView(rootView: contentView)
+        window.makeKeyAndOrderFront(nil)
+        mainWindow = window
         
-        restoreWindowPosition()
+        print("[AppDelegate] Window should now be visible")
+        
+        // 第三步: 异步初始化其他组件 (在 window 显示之后)
+        // 这样即使某个组件初始化慢，用户也能先看到窗口
+        DispatchQueue.main.async { [weak self] in
+            self?.finishInitialization()
+        }
+    }
+    
+    private func finishInitialization() {
+        print("[AppDelegate] Starting delayed initialization...")
+        
+        // 按顺序初始化，确保依赖关系正确
+        // 1. SettingsStorage 通过 AppSettings.shared 隐式初始化
+        // 2. AppSettings.finishInitialization() 触发 didSet 副作用
+        // 3. MenuBarController.setup() 读取 AppSettings.showInMenuBar
+        // 4. HotkeyService.setup() 读取 AppSettings.hotkeyEnabled
+        // 5. SpeedControlState.setup() 读取 AppSettings.lastUsedSpeed
+        // 6. AppLauncherViewModel.setup() 创建 Timer
+        
+        AppSettings.shared.finishInitialization()
+        MenuBarController.shared.setup()
+        HotkeyService.shared.setup()
+        SpeedControlState.shared.setup()
+        AppLauncherViewModel.shared.setup()
+        
         setupMenu()
         setupWindowDelegate()
+        restoreWindowPosition()
         
-        print("[AppDelegate] OpenSwift launched successfully")
+        print("[AppDelegate] ✅ OpenSwift launched successfully")
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
         print("[AppDelegate] Application terminating, cleaning up...")
         
         saveWindowPosition()
-        
         ProcessManagerProvider.shared.manager.cleanupAll()
-        HotkeyService.shared.unregisterHotkeys()
-        appSettings.save()
+        AppSettings.shared.save()
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return !appSettings.minimizeToTray
+        // 最小化到托盘时不退出
+        return !AppSettings.shared.minimizeToTray
     }
     
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -58,20 +89,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func saveWindowPosition() {
         if let frame = mainWindow?.frame {
-            appSettings.windowPosition = frame.origin
-            appSettings.windowSize = frame.size
+            AppSettings.shared.windowPosition = frame.origin
+            AppSettings.shared.windowSize = frame.size
         }
     }
     
     private func restoreWindowPosition() {
-        if let position = appSettings.windowPosition {
+        if let position = AppSettings.shared.windowPosition {
             mainWindow?.setFrameOrigin(position)
         }
         
-        if let size = appSettings.windowSize {
-            var frame = mainWindow?.frame ?? NSRect.zero
-            frame.size = size
-            mainWindow?.setFrame(frame, display: true)
+        if let size = AppSettings.shared.windowSize {
+            if var frame = mainWindow?.frame {
+                frame.size = size
+                mainWindow?.setFrame(frame, display: true)
+            }
         }
     }
     
@@ -194,11 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func cleanupInactiveProcesses() {
-        let manager = ProcessManagerProvider.shared.manager
-        let inactiveProcesses = manager.injectedProcesses.filter { !$0.isActive }
-        for inactive in inactiveProcesses {
-            manager.removeInjectedProcess(inactive)
-        }
+        AppLauncherViewModel.shared.cleanupTerminatedProcesses()
     }
     
     @objc private func showHelp() {
@@ -212,7 +240,7 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         
-        if window == mainWindow && appSettings.minimizeToTray {
+        if window == mainWindow && AppSettings.shared.minimizeToTray {
             window.orderOut(nil)
         }
     }

@@ -1,73 +1,58 @@
 import Foundation
 import Combine
 
+// 关键修复: init 不引用其他 singleton
+// SpeedControlState 由 ContentView 在 UI 加载时触发
+// 但由于它是 singleton，第一次访问时会触发 init
+// 所以这里的 init 必须绝对轻量，不能引用 AppSettings.shared 或 SpeedControlManager.shared
 class SpeedControlState: ObservableObject {
     
     static let shared = SpeedControlState()
-    
-    private let appSettings = AppSettings.shared
-    private let speedControlManager = SpeedControlManager.shared
     
     private let minSpeed: Double = 0.1
     private let maxSpeed: Double = 10.0
     private let defaultSpeed: Double = 1.0
     
-    @Published var currentSpeed: Double = 1.0 {
-        didSet {
-            if oldValue != currentSpeed {
-                objectWillChange.send()
-                saveState()
-            }
-        }
-    }
-    
-    @Published var isEnabled: Bool = false {
-        didSet {
-            if oldValue != isEnabled {
-                objectWillChange.send()
-                saveState()
-            }
-        }
-    }
-    
-    @Published var selectedProcess: ProcessInfo? {
-        didSet {
-            objectWillChange.send()
-            if let process = selectedProcess {
-                attachToProcess(process)
-            } else {
-                detachFromProcess()
-            }
-        }
-    }
+    @Published var currentSpeed: Double = 1.0
+    @Published var isEnabled: Bool = false
+    @Published var selectedProcess: ProcessInfo?
     
     private var lastError: String?
+    private var isSetup: Bool = false
     
     private init() {
-        loadSavedState()
+        // 什么也不做
+        // 所有初始化延迟到 setup()
     }
     
-    private func loadSavedState() {
-        let savedSpeed = appSettings.lastUsedSpeed
+    // 由 AppDelegate 在窗口显示后调用
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
+        
+        // 从设置加载速度值
+        let savedSpeed = AppSettings.shared.lastUsedSpeed
         if savedSpeed >= minSpeed && savedSpeed <= maxSpeed {
             currentSpeed = savedSpeed
         } else {
             currentSpeed = defaultSpeed
         }
-    }
-    
-    private func saveState() {
-        appSettings.lastUsedSpeed = currentSpeed
+        
+        print("[SpeedControlState] Setup complete, currentSpeed: \(currentSpeed)")
     }
     
     func setSpeed(_ speed: Double) {
         let clampedSpeed = min(max(speed, minSpeed), maxSpeed)
         currentSpeed = clampedSpeed
         
-        if let _ = selectedProcess {
-            let result = speedControlManager.setSpeedRatio(Float(clampedSpeed))
-            if !result {
-                logError("Failed to set speed ratio")
+        if isSetup {
+            AppSettings.shared.lastUsedSpeed = clampedSpeed
+            
+            if let _ = selectedProcess {
+                let result = SpeedControlManager.shared.setSpeedRatio(Float(clampedSpeed))
+                if !result {
+                    logError("Failed to set speed ratio")
+                }
             }
         }
     }
@@ -75,10 +60,12 @@ class SpeedControlState: ObservableObject {
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         
-        if let _ = selectedProcess {
-            let result = speedControlManager.setEnabled(enabled)
-            if !result {
-                logError("Failed to set enabled state")
+        if isSetup {
+            if let _ = selectedProcess {
+                let result = SpeedControlManager.shared.setEnabled(enabled)
+                if !result {
+                    logError("Failed to set enabled state")
+                }
             }
         }
     }
@@ -92,33 +79,16 @@ class SpeedControlState: ObservableObject {
     }
     
     func syncFromManager() {
-        if let state = speedControlManager.syncFromSharedMemory() {
-            currentSpeed = Double(state.speedRatio)
-            isEnabled = state.isEnabled
+        if isSetup {
+            if let state = SpeedControlManager.shared.syncFromSharedMemory() {
+                currentSpeed = Double(state.speedRatio)
+                isEnabled = state.isEnabled
+            }
         }
-    }
-    
-    private func attachToProcess(_ process: ProcessInfo) {
-        let success = speedControlManager.attachToProcess(pid: process.pid)
-        if success {
-            _ = speedControlManager.setSpeedRatioAndEnabled(
-                ratio: Float(currentSpeed),
-                enabled: isEnabled
-            )
-            clearError()
-        } else {
-            logError("Failed to attach to process: \(process.name)")
-        }
-    }
-    
-    private func detachFromProcess() {
-        speedControlManager.detachFromProcess()
     }
     
     private func logError(_ message: String) {
-        #if DEBUG
         print("[SpeedControlState] Error: \(message)")
-        #endif
         lastError = message
     }
     

@@ -2,6 +2,10 @@ import Foundation
 import Combine
 import AppKit
 
+// 关键修复:
+// 1. init 中不创建 Timer (Timer 需要主线程 runloop)
+// 2. init 中不立即调用 refreshLaunchedProcesses (会触发 AppLauncher.shared 导致循环)
+// 3. Timer 和刷新都延迟到 setup() 中，由 AppDelegate 在窗口显示后调用
 class AppLauncherViewModel: ObservableObject {
     static let shared = AppLauncherViewModel()
     
@@ -12,17 +16,30 @@ class AppLauncherViewModel: ObservableObject {
     @Published var showSuccess = false
     @Published var successMessage = ""
     
-    private let appLauncher = AppLauncher.shared
-    private let speedControlManager = SpeedControlManager.shared
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
+    private var isSetup: Bool = false
     
     private init() {
+        // 什么也不做
+        // 所有 heavy 操作延迟到 setup()
+    }
+    
+    // 由 AppDelegate 在窗口显示后调用
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
+        
         refreshLaunchedProcesses()
         
-        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.refreshLaunchedProcesses()
+        // Timer 在主线程创建
+        DispatchQueue.main.async { [weak self] in
+            self?.timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.refreshLaunchedProcesses()
+            }
         }
+        
+        print("[AppLauncherViewModel] Setup complete")
     }
     
     deinit {
@@ -31,38 +48,38 @@ class AppLauncherViewModel: ObservableObject {
     
     func refreshLaunchedProcesses() {
         DispatchQueue.main.async { [weak self] in
-            self?.launchedProcesses = self?.appLauncher.getLaunchedProcesses() ?? []
+            self?.launchedProcesses = AppLauncher.shared.getLaunchedProcesses()
         }
     }
     
     func selectProcess(_ process: LaunchedProcess?) {
         selectedLaunchedProcess = process
         if let process = process {
-            let success = speedControlManager.attachToProcess(pid: process.pid)
+            let success = SpeedControlManager.shared.attachToProcess(pid: process.pid)
             if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
                 launchedProcesses[index].isSharedMemoryConnected = success
             }
         } else {
-            speedControlManager.detachFromProcess()
+            SpeedControlManager.shared.detachFromProcess()
         }
     }
     
     func updateSpeed(_ speed: Double, for process: LaunchedProcess) {
-        _ = speedControlManager.setSpeedRatio(Float(speed))
+        _ = SpeedControlManager.shared.setSpeedRatio(Float(speed))
         if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
             launchedProcesses[index].currentSpeed = speed
         }
     }
     
     func toggleSpeedControl(_ enabled: Bool, for process: LaunchedProcess) {
-        _ = speedControlManager.setEnabled(enabled)
+        _ = SpeedControlManager.shared.setEnabled(enabled)
         if let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
             launchedProcesses[index].isSpeedControlEnabled = enabled
         }
     }
     
     func disconnectFromProcess() {
-        speedControlManager.detachFromProcess()
+        SpeedControlManager.shared.detachFromProcess()
         if let process = selectedLaunchedProcess, let index = launchedProcesses.firstIndex(where: { $0.id == process.id }) {
             launchedProcesses[index].isSharedMemoryConnected = false
         }
@@ -70,7 +87,7 @@ class AppLauncherViewModel: ObservableObject {
     }
     
     func launchApp(at url: URL) {
-        let result = appLauncher.launchApp(at: url)
+        let result = AppLauncher.shared.launchApp(at: url)
         
         switch result {
         case .success(let process):
@@ -94,7 +111,7 @@ class AppLauncherViewModel: ObservableObject {
     
     func terminateProcess(_ process: LaunchedProcess) {
         disconnectFromProcess()
-        let result = appLauncher.terminateProcess(process)
+        let result = AppLauncher.shared.terminateProcess(process)
         
         switch result {
         case .success:
@@ -118,7 +135,7 @@ class AppLauncherViewModel: ObservableObject {
     
     func forceTerminateProcess(_ process: LaunchedProcess) {
         disconnectFromProcess()
-        let result = appLauncher.forceTerminateProcess(process)
+        let result = AppLauncher.shared.forceTerminateProcess(process)
         
         switch result {
         case .success:
@@ -141,7 +158,7 @@ class AppLauncherViewModel: ObservableObject {
     }
     
     func removeProcess(_ process: LaunchedProcess) {
-        appLauncher.removeProcess(process)
+        AppLauncher.shared.removeProcess(process)
         refreshLaunchedProcesses()
     }
     
@@ -151,7 +168,7 @@ class AppLauncherViewModel: ObservableObject {
                 disconnectFromProcess()
             }
         }
-        appLauncher.clearTerminatedProcesses()
+        AppLauncher.shared.clearTerminatedProcesses()
         refreshLaunchedProcesses()
     }
 }

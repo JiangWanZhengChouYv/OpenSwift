@@ -2,40 +2,58 @@ import Foundation
 import Combine
 import AppKit
 
+// 关键修复: init 只做最轻量的操作
+// 所有需要其他 singleton 或 heavy IO 的操作延迟到 finishInitialization()
+// finishInitialization() 在窗口显示完成后由 AppDelegate 调用
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
     
     private let storage = SettingsStorage.shared
     private var cancellables = Set<AnyCancellable>()
     
+    // 防止 init 中赋值触发 didSet 副作用
+    private var isInitializing: Bool = true
+    // 延迟初始化完成标志
+    private var initializationFinished: Bool = false
+    
     @Published var isFirstLaunch: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(isFirstLaunch, forKey: SettingsKeys.isFirstLaunch)
         }
     }
     
     @Published var launchAtLogin: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(launchAtLogin, forKey: SettingsKeys.launchAtLogin)
-            LaunchAtLoginManager.setLaunchAtLogin(enabled: launchAtLogin)
+            // LaunchAtLoginManager 延迟到 finishInitialization 之后
+            if initializationFinished {
+                LaunchAtLoginManager.setLaunchAtLogin(enabled: launchAtLogin)
+            }
         }
     }
     
     @Published var showInMenuBar: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(showInMenuBar, forKey: SettingsKeys.showInMenuBar)
-            NotificationCenter.default.post(name: .showInMenuBarChanged, object: nil)
+            if initializationFinished {
+                NotificationCenter.default.post(name: .showInMenuBarChanged, object: nil)
+            }
         }
     }
     
     @Published var minimizeToTray: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(minimizeToTray, forKey: SettingsKeys.minimizeToTray)
         }
     }
     
     @Published var windowPosition: CGPoint? {
         didSet {
+            guard !isInitializing else { return }
             if let position = windowPosition {
                 storage.saveWindowPosition(position)
             }
@@ -44,6 +62,7 @@ class AppSettings: ObservableObject {
     
     @Published var windowSize: CGSize? {
         didSet {
+            guard !isInitializing else { return }
             if let size = windowSize {
                 storage.saveWindowSize(size)
             }
@@ -52,64 +71,76 @@ class AppSettings: ObservableObject {
     
     @Published var showProcessIcons: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(showProcessIcons, forKey: SettingsKeys.showProcessIcons)
         }
     }
     
     @Published var autoRefreshProcessList: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(autoRefreshProcessList, forKey: SettingsKeys.autoRefreshProcessList)
         }
     }
     
     @Published var refreshInterval: TimeInterval {
         didSet {
+            guard !isInitializing else { return }
             storage.save(refreshInterval, forKey: SettingsKeys.refreshInterval)
         }
     }
     
     @Published var lastUsedSpeed: Double {
         didSet {
+            guard !isInitializing else { return }
             storage.save(lastUsedSpeed, forKey: SettingsKeys.lastUsedSpeed)
         }
     }
     
     @Published var rememberSpeedPerProcess: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(rememberSpeedPerProcess, forKey: SettingsKeys.rememberSpeedPerProcess)
         }
     }
     
     @Published var hotkeyEnabled: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(hotkeyEnabled, forKey: SettingsKeys.hotkeyEnabled)
-            if hotkeyEnabled {
-                HotkeyService.shared.registerHotkeys()
-            } else {
-                HotkeyService.shared.unregisterHotkeys()
+            if initializationFinished {
+                if hotkeyEnabled {
+                    HotkeyService.shared.registerHotkeys()
+                } else {
+                    HotkeyService.shared.unregisterHotkeys()
+                }
             }
         }
     }
     
     @Published var showSpeedNotifications: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(showSpeedNotifications, forKey: SettingsKeys.showSpeedNotifications)
         }
     }
     
     @Published var maxHistoryCount: Int {
         didSet {
+            guard !isInitializing else { return }
             storage.save(maxHistoryCount, forKey: SettingsKeys.maxHistoryCount)
         }
     }
     
     @Published var autoCleanupInactive: Bool {
         didSet {
+            guard !isInitializing else { return }
             storage.save(autoCleanupInactive, forKey: SettingsKeys.autoCleanupInactive)
         }
     }
     
     private init() {
+        // 只做最轻量的配置读取，不触发任何副作用
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
         showInMenuBar = storage.loadBool(forKey: SettingsKeys.showInMenuBar)
@@ -131,70 +162,58 @@ class AppSettings: ObservableObject {
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
         
+        // init 完成，允许 didSet 生效（但还不允许 heavy 副作用）
+        isInitializing = false
+        
+        // 注意: 不在这里调用 setupBindings / migrateIfNeeded
+        // 这些延迟到 finishInitialization()
+    }
+    
+    // 由 AppDelegate 在窗口显示完成后调用
+    func finishInitialization() {
+        guard !initializationFinished else { return }
+        
         setupBindings()
         storage.migrateIfNeeded()
         
-        #if DEBUG
-        print("[AppSettings] Initialized with launchAtLogin: \(launchAtLogin)")
-        #endif
+        // 应用设置值 (hotkey 等)
+        if launchAtLogin {
+            LaunchAtLoginManager.setLaunchAtLogin(enabled: true)
+        }
+        
+        initializationFinished = true
+        
+        print("[AppSettings] Initialization finished")
     }
     
     private func setupBindings() {
-        $launchAtLogin
-            .dropFirst()
-            .sink { [weak self] value in
-                self?.storage.save(value, forKey: SettingsKeys.launchAtLogin)
-            }
-            .store(in: &cancellables)
-        
-        $showInMenuBar
-            .dropFirst()
-            .sink { [weak self] value in
-                self?.storage.save(value, forKey: SettingsKeys.showInMenuBar)
-            }
-            .store(in: &cancellables)
+        // 不做任何复杂 binding，避免启动时的重入问题
     }
     
     func save() {
         storage.saveAll()
-        #if DEBUG
-        print("[AppSettings] Settings saved")
-        #endif
     }
     
     func load() {
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
         showInMenuBar = storage.loadBool(forKey: SettingsKeys.showInMenuBar)
         minimizeToTray = storage.loadBool(forKey: SettingsKeys.minimizeToTray)
-        
         windowPosition = storage.loadWindowPosition()
         windowSize = storage.loadWindowSize()
-        
         showProcessIcons = storage.loadBool(forKey: SettingsKeys.showProcessIcons)
         autoRefreshProcessList = storage.loadBool(forKey: SettingsKeys.autoRefreshProcessList)
         refreshInterval = storage.loadDouble(forKey: SettingsKeys.refreshInterval)
-        
         lastUsedSpeed = storage.loadDouble(forKey: SettingsKeys.lastUsedSpeed)
         rememberSpeedPerProcess = storage.loadBool(forKey: SettingsKeys.rememberSpeedPerProcess)
-        
         hotkeyEnabled = storage.loadBool(forKey: SettingsKeys.hotkeyEnabled)
         showSpeedNotifications = storage.loadBool(forKey: SettingsKeys.showSpeedNotifications)
-        
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
-        
-        #if DEBUG
-        print("[AppSettings] Settings loaded")
-        #endif
     }
     
     func resetToDefaults() {
         storage.reset()
         load()
-        
-        #if DEBUG
-        print("[AppSettings] Settings reset to defaults")
-        #endif
     }
     
     func exportConfiguration() -> Data? {
@@ -208,9 +227,6 @@ class AppSettings: ObservableObject {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             return try encoder.encode(config)
         } catch {
-            #if DEBUG
-            print("[AppSettings] Failed to export configuration: \(error)")
-            #endif
             return nil
         }
     }
@@ -220,13 +236,11 @@ class AppSettings: ObservableObject {
         let config = try decoder.decode(ConfigurationExportData.self, from: data)
         
         importAppSettings(config.appSettings)
-        
         HotkeyStorage.shared.save(config.hotkeyConfigs)
-        HotkeyService.shared.loadConfigurations()
-        
-        #if DEBUG
-        print("[AppSettings] Configuration imported successfully")
-        #endif
+        if initializationFinished {
+            HotkeyService.shared.loadConfigurations()
+        }
+        save()
     }
     
     private func exportAppSettings() -> AppSettingsExportData {
@@ -259,8 +273,6 @@ class AppSettings: ObservableObject {
         showSpeedNotifications = settings.showSpeedNotifications
         maxHistoryCount = settings.maxHistoryCount
         autoCleanupInactive = settings.autoCleanupInactive
-        
-        save()
     }
 }
 

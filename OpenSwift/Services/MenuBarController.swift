@@ -1,6 +1,9 @@
 import Foundation
 import AppKit
 
+// 关键修复: init 只做最轻量的操作
+// MenuBarController 在 AppDelegate.applicationDidFinishLaunching 中通过 setup() 初始化
+// 这确保在窗口显示之后才做任何 heavy 操作
 class MenuBarController: ObservableObject {
     static let shared = MenuBarController()
     
@@ -9,27 +12,29 @@ class MenuBarController: ObservableObject {
     private var statusItem: NSStatusItem?
     private var menu: NSMenu?
     
-    private let appSettings = AppSettings.shared
+    // 延迟初始化: 不直接持有 AppSettings.shared (避免循环初始化)
+    // 只在需要时通过方法访问
+    private var isSetup: Bool = false
     
     private init() {
-        setupObservers()
+        // 什么也不做
     }
     
-    private func setupObservers() {
+    func setup() {
+        guard !isSetup else { return }
+        isSetup = true
+        
+        let show = AppSettings.shared.showInMenuBar
+        if show {
+            showMenuBarItem()
+        }
+        
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleShowInMenuBarChanged),
             name: .showInMenuBarChanged,
             object: nil
         )
-    }
-    
-    func setup() {
-        if appSettings.showInMenuBar {
-            showMenuBarItem()
-        } else {
-            hideMenuBarItem()
-        }
     }
     
     func showMenuBarItem() {
@@ -45,10 +50,6 @@ class MenuBarController: ObservableObject {
         
         createMenu()
         isVisible = true
-        
-        #if DEBUG
-        print("[MenuBarController] Menu bar item shown")
-        #endif
     }
     
     func hideMenuBarItem() {
@@ -57,10 +58,6 @@ class MenuBarController: ObservableObject {
             statusItem = nil
         }
         isVisible = false
-        
-        #if DEBUG
-        print("[MenuBarController] Menu bar item hidden")
-        #endif
     }
     
     private func createMenuBarIcon() -> NSImage {
@@ -111,10 +108,14 @@ class MenuBarController: ObservableObject {
     }
     
     @objc private func handleShowInMenuBarChanged() {
-        if appSettings.showInMenuBar {
-            showMenuBarItem()
-        } else {
-            hideMenuBarItem()
+        // 延迟获取，避免在初始化阶段访问
+        DispatchQueue.main.async { [weak self] in
+            let shouldShow = AppSettings.shared.showInMenuBar
+            if shouldShow {
+                self?.showMenuBarItem()
+            } else {
+                self?.hideMenuBarItem()
+            }
         }
     }
     
