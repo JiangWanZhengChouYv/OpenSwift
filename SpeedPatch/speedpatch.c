@@ -197,19 +197,6 @@ bool speedpatch_is_active(void) {
     return active;
 }
 
-static inline double apply_speed_multiplier(double original_value) {
-    if (!speedpatch_is_active()) {
-        return original_value;
-    }
-    
-    float ratio = speedpatch_get_speed_ratio();
-    if (ratio <= 0.0f || ratio == 1.0f) {
-        return original_value;
-    }
-    
-    return original_value / ratio;
-}
-
 typedef uint64_t (*mach_absolute_time_t)(void);
 typedef int (*clock_gettime_t)(clockid_t clk_id, struct timespec *tp);
 typedef int (*gettimeofday_t)(struct timeval *tp, void *tzp);
@@ -380,21 +367,6 @@ static double hooked_CFAbsoluteTimeGetCurrent(void) {
     }
     
     return current_time / ratio;
-}
-
-static uint64_t hooked_mach_physical_time(void) {
-    uint64_t current_time = original_mach_physical_time();
-    
-    if (!speedpatch_is_active()) {
-        return current_time;
-    }
-    
-    float ratio = speedpatch_get_speed_ratio();
-    if (ratio <= 0.0f || ratio == 1.0f) {
-        return current_time;
-    }
-    
-    return (uint64_t)((double)current_time / ratio);
 }
 
 static void speedpatch_hook_time_functions(void) {

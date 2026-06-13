@@ -28,7 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.center()
         window.title = "OpenSwift"
-        window.isHidden = false
         window.contentView = NSHostingView(rootView: contentView)
         window.makeKeyAndOrderFront(nil)
         mainWindow = window
