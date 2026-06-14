@@ -88,7 +88,7 @@ struct HotkeyRecorderView: View {
             return nil
         }
 
-        print("[HotkeyRecorderView] Started recording")
+        logDebug("Started recording", log: .hotkey)
     }
 
     private func stopRecording() {
@@ -97,7 +97,7 @@ struct HotkeyRecorderView: View {
             eventMonitor = nil
         }
         isRecording = false
-        print("[HotkeyRecorderView] Stopped recording")
+        logDebug("Stopped recording", log: .hotkey)
     }
 
     private func cancelRecording() {

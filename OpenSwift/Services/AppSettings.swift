@@ -2,113 +2,94 @@ import Foundation
 import Combine
 import AppKit
 
-// 关键修复: init 只做最轻量的操作
-// 所有需要其他 singleton 或 heavy IO 的操作延迟到 finishInitialization()
-// finishInitialization() 在窗口显示完成后由 AppDelegate 调用
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
-    
+
     private let storage = SettingsStorage.shared
     private var cancellables = Set<AnyCancellable>()
-    
-    // 防止 init 中赋值触发 didSet 副作用
-    private var isInitializing: Bool = true
-    // 延迟初始化完成标志
-    private var initializationFinished: Bool = false
-    
-    @Published var isFirstLaunch: Bool {
+
+    private var sideEffectsEnabled: Bool = false
+
+    @Published var isFirstLaunch: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(isFirstLaunch, forKey: SettingsKeys.isFirstLaunch)
         }
     }
-    
-    @Published var launchAtLogin: Bool {
+
+    @Published var launchAtLogin: Bool = false {
         didSet {
-            guard !isInitializing else { return }
             storage.save(launchAtLogin, forKey: SettingsKeys.launchAtLogin)
-            // LaunchAtLoginManager 延迟到 finishInitialization 之后
-            if initializationFinished {
+            if sideEffectsEnabled {
                 LaunchAtLoginManager.setLaunchAtLogin(enabled: launchAtLogin)
             }
         }
     }
-    
-    @Published var showInMenuBar: Bool {
+
+    @Published var showInMenuBar: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(showInMenuBar, forKey: SettingsKeys.showInMenuBar)
-            if initializationFinished {
+            if sideEffectsEnabled {
                 NotificationCenter.default.post(name: .showInMenuBarChanged, object: nil)
             }
         }
     }
-    
-    @Published var minimizeToTray: Bool {
+
+    @Published var minimizeToTray: Bool = false {
         didSet {
-            guard !isInitializing else { return }
             storage.save(minimizeToTray, forKey: SettingsKeys.minimizeToTray)
         }
     }
-    
-    @Published var windowPosition: CGPoint? {
+
+    @Published var windowPosition: CGPoint? = nil {
         didSet {
-            guard !isInitializing else { return }
             if let position = windowPosition {
                 storage.saveWindowPosition(position)
             }
         }
     }
-    
-    @Published var windowSize: CGSize? {
+
+    @Published var windowSize: CGSize? = nil {
         didSet {
-            guard !isInitializing else { return }
             if let size = windowSize {
                 storage.saveWindowSize(size)
             }
         }
     }
-    
-    @Published var showProcessIcons: Bool {
+
+    @Published var showProcessIcons: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(showProcessIcons, forKey: SettingsKeys.showProcessIcons)
         }
     }
-    
-    @Published var autoRefreshProcessList: Bool {
+
+    @Published var autoRefreshProcessList: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(autoRefreshProcessList, forKey: SettingsKeys.autoRefreshProcessList)
         }
     }
-    
-    @Published var refreshInterval: TimeInterval {
+
+    @Published var refreshInterval: TimeInterval = 5.0 {
         didSet {
-            guard !isInitializing else { return }
             storage.save(refreshInterval, forKey: SettingsKeys.refreshInterval)
         }
     }
-    
-    @Published var lastUsedSpeed: Double {
+
+    @Published var lastUsedSpeed: Double = 1.0 {
         didSet {
-            guard !isInitializing else { return }
             storage.save(lastUsedSpeed, forKey: SettingsKeys.lastUsedSpeed)
         }
     }
-    
-    @Published var rememberSpeedPerProcess: Bool {
+
+    @Published var rememberSpeedPerProcess: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(rememberSpeedPerProcess, forKey: SettingsKeys.rememberSpeedPerProcess)
         }
     }
-    
-    @Published var hotkeyEnabled: Bool {
+
+    @Published var hotkeyEnabled: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(hotkeyEnabled, forKey: SettingsKeys.hotkeyEnabled)
-            if initializationFinished {
+            if sideEffectsEnabled {
                 if hotkeyEnabled {
                     HotkeyService.shared.registerHotkeys()
                 } else {
@@ -117,83 +98,70 @@ class AppSettings: ObservableObject {
             }
         }
     }
-    
-    @Published var showSpeedNotifications: Bool {
+
+    @Published var showSpeedNotifications: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(showSpeedNotifications, forKey: SettingsKeys.showSpeedNotifications)
         }
     }
-    
-    @Published var maxHistoryCount: Int {
+
+    @Published var maxHistoryCount: Int = 100 {
         didSet {
-            guard !isInitializing else { return }
             storage.save(maxHistoryCount, forKey: SettingsKeys.maxHistoryCount)
         }
     }
-    
-    @Published var autoCleanupInactive: Bool {
+
+    @Published var autoCleanupInactive: Bool = true {
         didSet {
-            guard !isInitializing else { return }
             storage.save(autoCleanupInactive, forKey: SettingsKeys.autoCleanupInactive)
         }
     }
-    
+
     private init() {
-        // 只做最轻量的配置读取，不触发任何副作用
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
         showInMenuBar = storage.loadBool(forKey: SettingsKeys.showInMenuBar)
         minimizeToTray = storage.loadBool(forKey: SettingsKeys.minimizeToTray)
-        
+
         windowPosition = storage.loadWindowPosition()
         windowSize = storage.loadWindowSize()
-        
+
         showProcessIcons = storage.loadBool(forKey: SettingsKeys.showProcessIcons)
         autoRefreshProcessList = storage.loadBool(forKey: SettingsKeys.autoRefreshProcessList)
         refreshInterval = storage.loadDouble(forKey: SettingsKeys.refreshInterval)
-        
+
         lastUsedSpeed = storage.loadDouble(forKey: SettingsKeys.lastUsedSpeed)
         rememberSpeedPerProcess = storage.loadBool(forKey: SettingsKeys.rememberSpeedPerProcess)
-        
+
         hotkeyEnabled = storage.loadBool(forKey: SettingsKeys.hotkeyEnabled)
         showSpeedNotifications = storage.loadBool(forKey: SettingsKeys.showSpeedNotifications)
-        
+
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
-        
-        // init 完成，允许 didSet 生效（但还不允许 heavy 副作用）
-        isInitializing = false
-        
-        // 注意: 不在这里调用 setupBindings / migrateIfNeeded
-        // 这些延迟到 finishInitialization()
     }
-    
-    // 由 AppDelegate 在窗口显示完成后调用
-    func finishInitialization() {
-        guard !initializationFinished else { return }
-        
-        setupBindings()
+
+    func bootstrapSideEffects() {
+        guard !sideEffectsEnabled else { return }
+
         storage.migrateIfNeeded()
-        
-        // 应用设置值 (hotkey 等)
+
         if launchAtLogin {
             LaunchAtLoginManager.setLaunchAtLogin(enabled: true)
         }
-        
-        initializationFinished = true
-        
-        print("[AppSettings] Initialization finished")
+
+        sideEffectsEnabled = true
+
+        if hotkeyEnabled {
+            HotkeyService.shared.registerHotkeys()
+        }
+
+        logInfo("AppSettings: Side effects bootstrapped", log: .settings)
     }
-    
-    private func setupBindings() {
-        // 不做任何复杂 binding，避免启动时的重入问题
-    }
-    
+
     func save() {
         storage.saveAll()
     }
-    
+
     func load() {
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
         showInMenuBar = storage.loadBool(forKey: SettingsKeys.showInMenuBar)
@@ -210,18 +178,18 @@ class AppSettings: ObservableObject {
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
     }
-    
+
     func resetToDefaults() {
         storage.reset()
         load()
     }
-    
+
     func exportConfiguration() -> Data? {
         let config = ConfigurationExportData(
             appSettings: exportAppSettings(),
             hotkeyConfigs: HotkeyStorage.shared.load()
         )
-        
+
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -230,19 +198,19 @@ class AppSettings: ObservableObject {
             return nil
         }
     }
-    
+
     func importConfiguration(from data: Data) throws {
         let decoder = JSONDecoder()
         let config = try decoder.decode(ConfigurationExportData.self, from: data)
-        
+
         importAppSettings(config.appSettings)
         HotkeyStorage.shared.save(config.hotkeyConfigs)
-        if initializationFinished {
+        if sideEffectsEnabled {
             HotkeyService.shared.loadConfigurations()
         }
         save()
     }
-    
+
     private func exportAppSettings() -> AppSettingsExportData {
         return AppSettingsExportData(
             launchAtLogin: launchAtLogin,
@@ -259,7 +227,7 @@ class AppSettings: ObservableObject {
             autoCleanupInactive: autoCleanupInactive
         )
     }
-    
+
     private func importAppSettings(_ settings: AppSettingsExportData) {
         launchAtLogin = settings.launchAtLogin
         showInMenuBar = settings.showInMenuBar

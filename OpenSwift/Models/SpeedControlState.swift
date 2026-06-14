@@ -1,109 +1,85 @@
 import Foundation
 import Combine
 
-// 关键修复: init 不引用其他 singleton
-// SpeedControlState 由 ContentView 在 UI 加载时触发
-// 但由于它是 singleton，第一次访问时会触发 init
-// 所以这里的 init 必须绝对轻量，不能引用 AppSettings.shared 或 SpeedControlManager.shared
+// SpeedControlState 不再依赖全局 SpeedControlManager.shared。
+// 当前选中进程会通过 currentController（一个与该进程关联的 SpeedControlManager）。
+// 这样每个进程有独立的速度控制上下文。
 class SpeedControlState: ObservableObject {
-    
+
     static let shared = SpeedControlState()
-    
+
     private let minSpeed: Double = 0.1
     private let maxSpeed: Double = 10.0
     private let defaultSpeed: Double = 1.0
-    
+
     @Published var currentSpeed: Double = 1.0
     @Published var isEnabled: Bool = false
     @Published var selectedProcess: ProcessInfo?
-    
+
+    /// 当前 UI 选中进程对应的 SpeedControlManager。可能为 nil（没有进程被选中时）。
+    weak var currentController: SpeedControlManager?
+
     private var lastError: String?
     private var isSetup: Bool = false
-    
-    private init() {
-        // 什么也不做
-        // 所有初始化延迟到 setup()
-    }
-    
-    // 由 AppDelegate 在窗口显示后调用
+
+    private init() {}
+
     func setup() {
         guard !isSetup else { return }
         isSetup = true
-        
-        // 从设置加载速度值
-        let savedSpeed = AppSettings.shared.lastUsedSpeed
-        if savedSpeed >= minSpeed && savedSpeed <= maxSpeed {
-            currentSpeed = savedSpeed
-        } else {
-            currentSpeed = defaultSpeed
-        }
-        
-        print("[SpeedControlState] Setup complete, currentSpeed: \(currentSpeed)")
+
+        logInfo("SpeedControlState setup complete", log: .speed)
     }
-    
+
     func setSpeed(_ speed: Double) {
-        let clampedSpeed = min(max(speed, minSpeed), maxSpeed)
-        currentSpeed = clampedSpeed
-        
-        if isSetup {
-            AppSettings.shared.lastUsedSpeed = clampedSpeed
-            
-            if let _ = selectedProcess {
-                let result = SpeedControlManager.shared.setSpeedRatio(Float(clampedSpeed))
-                if !result {
-                    logError("Failed to set speed ratio")
-                }
+        let clamped = min(max(speed, minSpeed), maxSpeed)
+        currentSpeed = clamped
+
+        if let controller = currentController {
+            let result = controller.setSpeedRatio(Float(clamped))
+            if !result {
+                logError("Failed to set speed ratio", log: .speed)
             }
+        } else {
+            logDebug("setSpeed called without active process — ignoring shared memory write", log: .speed)
         }
     }
-    
+
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
-        
-        if isSetup {
-            if let _ = selectedProcess {
-                let result = SpeedControlManager.shared.setEnabled(enabled)
-                if !result {
-                    logError("Failed to set enabled state")
-                }
-            }
+        if let controller = currentController {
+            _ = controller.setEnabled(enabled)
         }
     }
-    
+
     func toggleEnabled() {
         setEnabled(!isEnabled)
     }
-    
+
     func applyPresetSpeed(_ preset: Double) {
         setSpeed(preset)
     }
-    
+
     func syncFromManager() {
-        if isSetup {
-            if let state = SpeedControlManager.shared.syncFromSharedMemory() {
-                currentSpeed = Double(state.speedRatio)
-                isEnabled = state.isEnabled
-            }
+        if let controller = currentController, let state = controller.syncFromSharedMemory() {
+            currentSpeed = Double(state.speedRatio)
+            isEnabled = state.isEnabled
         }
     }
-    
-    private func logError(_ message: String) {
-        print("[SpeedControlState] Error: \(message)")
+
+    private func recordError(_ message: String) {
+        logError("SpeedControl: \(message)", log: .speed)
         lastError = message
     }
-    
-    private func clearError() {
-        lastError = nil
-    }
-    
+
     var hasError: Bool {
         return lastError != nil
     }
-    
+
     var errorMessage: String? {
         return lastError
     }
-    
+
     var speedDescription: String {
         if currentSpeed < 1.0 {
             let factor = 1.0 / currentSpeed
@@ -114,7 +90,7 @@ class SpeedControlState: ObservableObject {
             return "正常速度"
         }
     }
-    
+
     var speedCategory: SpeedCategory {
         if currentSpeed < 0.9 {
             return .slow

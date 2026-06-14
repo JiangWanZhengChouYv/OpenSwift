@@ -35,7 +35,7 @@ class HotkeyService: ObservableObject {
     
     func loadConfigurations() {
         configurations = storage.load()
-        print("[HotkeyService] Loaded \(configurations.count) configurations")
+        logDebug("Loaded \(configurations.count) configurations", log: .hotkey)
     }
     
     func saveConfigurations() {
@@ -49,7 +49,7 @@ class HotkeyService: ObservableObject {
         
         let enabledConfigs = configurations.filter { $0.isEnabled }
         if enabledConfigs.isEmpty {
-            print("[HotkeyService] No enabled hotkeys to register")
+            logDebug("No enabled hotkeys to register", log: .hotkey)
             return
         }
         
@@ -61,14 +61,14 @@ class HotkeyService: ObservableObject {
         hotkeyManager?.startMonitoring(with: enabledConfigs)
         isEnabled = true
         
-        print("[HotkeyService] Registered \(enabledConfigs.count) hotkeys")
+        logInfo("Registered \(enabledConfigs.count) hotkeys", log: .hotkey)
     }
     
     func unregisterHotkeys() {
         hotkeyManager?.stopMonitoring()
         hotkeyManager = nil
         isEnabled = false
-        print("[HotkeyService] Unregistered all hotkeys")
+        logInfo("Unregistered all hotkeys", log: .hotkey)
     }
     
     func updateConfiguration(_ config: HotkeyConfig) {
@@ -80,7 +80,7 @@ class HotkeyService: ObservableObject {
                 hotkeyManager?.updateConfigurations(configurations.filter { $0.isEnabled })
             }
             
-            print("[HotkeyService] Updated configuration: \(config.action.displayName)")
+            logDebug("Updated configuration: \(config.action.displayName)", log: .hotkey)
         }
     }
     
@@ -93,7 +93,7 @@ class HotkeyService: ObservableObject {
                 hotkeyManager?.updateConfigurations(configurations.filter { $0.isEnabled })
             }
             
-            print("[HotkeyService] \(isEnabled ? "Enabled" : "Disabled") hotkey: \(configurations[index].action.displayName)")
+            logDebug("\(isEnabled ? "Enabled" : "Disabled") hotkey: \(configurations[index].action.displayName)", log: .hotkey)
         }
     }
     
@@ -105,7 +105,7 @@ class HotkeyService: ObservableObject {
             hotkeyManager?.updateConfigurations(configurations.filter { $0.isEnabled })
         }
         
-        print("[HotkeyService] Reset to default configurations")
+        logInfo("Reset to default configurations", log: .hotkey)
     }
     
     func enableAll() {
@@ -120,7 +120,7 @@ class HotkeyService: ObservableObject {
             hotkeyManager?.updateConfigurations(configurations)
         }
         
-        print("[HotkeyService] Enabled all hotkeys")
+        logInfo("Enabled all hotkeys", log: .hotkey)
     }
     
     func disableAll() {
@@ -130,7 +130,7 @@ class HotkeyService: ObservableObject {
         saveConfigurations()
         
         hotkeyManager?.updateConfigurations([])
-        print("[HotkeyService] Disabled all hotkeys")
+        logInfo("Disabled all hotkeys", log: .hotkey)
     }
     
     private func executeAction(_ action: HotkeyAction) {
@@ -143,28 +143,28 @@ class HotkeyService: ObservableObject {
             case .increaseSpeed:
                 let newSpeed = min(speedControlState.currentSpeed + 0.5, 10.0)
                 speedControlState.setSpeed(newSpeed)
-                print("[HotkeyService] Increase speed to \(newSpeed)")
+                logDebug("Increase speed to \(newSpeed)", log: .hotkey)
                 
             case .decreaseSpeed:
                 let newSpeed = max(speedControlState.currentSpeed - 0.5, 0.1)
                 speedControlState.setSpeed(newSpeed)
-                print("[HotkeyService] Decrease speed to \(newSpeed)")
+                logDebug("Decrease speed to \(newSpeed)", log: .hotkey)
                 
             case .toggleSpeed:
                 speedControlState.toggleEnabled()
-                print("[HotkeyService] Toggle speed control: \(speedControlState.isEnabled)")
+                logDebug("Toggle speed control: \(speedControlState.isEnabled)", log: .hotkey)
                 
             case .resetSpeed:
                 speedControlState.setSpeed(1.0)
-                print("[HotkeyService] Reset speed to 1.0")
+                logDebug("Reset speed to 1.0", log: .hotkey)
                 
             case .quickBoost:
                 speedControlState.setSpeed(2.0)
-                print("[HotkeyService] Quick boost to 2.0")
+                logDebug("Quick boost to 2.0", log: .hotkey)
                 
             case .quickSlow:
                 speedControlState.setSpeed(0.5)
-                print("[HotkeyService] Quick slow to 0.5")
+                logDebug("Quick slow to 0.5", log: .hotkey)
             }
             
             self.showNotification(for: action, speed: speedControlState.currentSpeed, isEnabled: speedControlState.isEnabled)

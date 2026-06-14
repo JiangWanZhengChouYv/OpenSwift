@@ -446,7 +446,7 @@ struct AdvancedSettingsView: View {
                 importConfiguration(from: url)
                 url.stopAccessingSecurityScopedResource()
             case .failure(let error):
-                print("Import failed: \(error)")
+                logError("Import failed: \(error.localizedDescription)", log: .settings)
             }
         }
     }

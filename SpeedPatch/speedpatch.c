@@ -22,7 +22,7 @@
 
 // 魔术数字，用于验证共享内存已正确初始化
 #define SPDM_MAGIC 0x5350444D
-#define SPDM_VERSION 1
+#define SPDM_VERSION 2
 
 // 共享内存 header - 自然对齐，字段顺序保证跨平台一致性
 // Swift 端按相同的字节偏移读写，所以这里的字段顺序必须与 Swift 端完全一致
@@ -60,6 +60,16 @@ static const uint32_t MAGIC_NUMBER = SPDM_MAGIC;
 static const float MIN_SPEED_RATIO = 0.1f;
 static const float MAX_SPEED_RATIO = 10.0f;
 static const float DEFAULT_SPEED_RATIO = 1.0f;
+
+// 时间函数 Hook 的基准时间值（由 speedpatch_init_time_base 初始化）
+static uint64_t g_base_mach_absolute_time = 0;
+static double   g_base_clock_gettime_sec = 0.0;
+static long     g_base_clock_gettime_nsec = 0;
+static bool     g_time_base_initialized = false;
+
+// 单调性保护变量：确保缩放后的时间始终单调递增
+static uint64_t g_last_returned_mach_time = 0;
+static int64_t  g_last_clock_ns = INT64_MIN;
 
 //
 // 共享内存初始化
@@ -242,27 +252,43 @@ static uint64_t units_to_mach_absolute_time(uint64_t units);
 
 //
 // mach_absolute_time: 返回系统启动后的绝对时间（单位依赖 mach_timebase_info）
-// 被 hook 后，如果 speed_ratio != 1.0，返回被缩放的时间
+// 被 hook 后，如果 speed_ratio != 1.0，返回被缩放的时间（基于基准时间法）
+// 保持单调递增语义。
 //
 static uint64_t hooked_mach_absolute_time(void) {
     uint64_t current_time = original_mach_absolute_time();
 
     if (!speedpatch_is_active()) {
+        // 透传
+        g_last_returned_mach_time = current_time;
         return current_time;
     }
 
     float ratio = speedpatch_get_speed_ratio();
     if (ratio <= 0.0f || ratio == 1.0f) {
+        g_last_returned_mach_time = current_time;
         return current_time;
     }
 
-    // 将 mach 时间转换为纳秒，按比例缩放，再转回来
-    // 加速时 (ratio > 1.0): 纳秒值 / ratio = 更小的值 → 时间看起来更慢
-    // 减速时 (ratio < 1.0): 纳秒值 / ratio = 更大的值 → 时间看起来更快
-    uint64_t nanoseconds = mach_absolute_time_to_units(current_time);
-    uint64_t modified_nanoseconds = (uint64_t)((double)nanoseconds / (double)ratio);
+    // 基准时间法：delta = (current - base) / ratio；result = base + delta
+    uint64_t base = g_base_mach_absolute_time;
+    uint64_t result;
 
-    return units_to_mach_absolute_time(modified_nanoseconds);
+    if (current_time <= base) {
+        result = current_time;
+    } else {
+        uint64_t delta = current_time - base;
+        uint64_t scaled_delta = (uint64_t)((double)delta / (double)ratio);
+        result = base + scaled_delta;
+    }
+
+    // 单调性保护：不允许回退，最小 +1 递增
+    if (result <= g_last_returned_mach_time) {
+        result = g_last_returned_mach_time + 1;
+    }
+    g_last_returned_mach_time = result;
+
+    return result;
 }
 
 static uint64_t mach_absolute_time_to_units(uint64_t mach_time) {
@@ -288,15 +314,20 @@ static uint64_t units_to_mach_absolute_time(uint64_t units) {
 //
 // clock_gettime: 获取指定时钟的时间
 // 只修改单调时钟 (CLOCK_MONOTONIC*)，不修改挂钟时间 (CLOCK_REALTIME)
+// 使用基准时间法缩放，并保持单调性。
 //
 static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
-    // 只修改单调时钟，不修改真实挂钟时间
+    // 只修改单调时钟，其他时钟全部透传
     if (clk_id != CLOCK_MONOTONIC && clk_id != CLOCK_MONOTONIC_RAW) {
         return original_clock_gettime(clk_id, tp);
     }
 
     int result = original_clock_gettime(clk_id, tp);
-    if (result != 0 || !speedpatch_is_active() || tp == NULL) {
+    if (result != 0 || tp == NULL) {
+        return result;
+    }
+
+    if (!speedpatch_is_active()) {
         return result;
     }
 
@@ -305,15 +336,45 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
         return result;
     }
 
-    // 从进程启动开始的单调时间，按比例缩放
-    double seconds = (double)tp->tv_sec;
-    double nanoseconds = (double)tp->tv_nsec;
-    double total_nanoseconds = seconds * 1000000000.0 + nanoseconds;
-    double modified_nanoseconds = total_nanoseconds / ratio;
+    // 计算自基准以来的累计纳秒差
+    int64_t delta_sec  = (int64_t)tp->tv_sec  - (int64_t)g_base_clock_gettime_sec;
+    int64_t delta_nsec = (int64_t)tp->tv_nsec - (int64_t)g_base_clock_gettime_nsec;
+    int64_t delta_total_ns = delta_sec * 1000000000LL + delta_nsec;
 
-    uint64_t total_ns = (uint64_t)modified_nanoseconds;
-    tp->tv_sec = (time_t)(total_ns / 1000000000ULL);
-    tp->tv_nsec = (long)(total_ns % 1000000000ULL);
+    if (delta_total_ns < 0) {
+        // 当前时间比基准还早（异常或时钟回拨），不缩放，直接透传
+        return result;
+    }
+
+    // 缩放：adjusted_ns = delta_total_ns / ratio
+    int64_t adjusted_ns = (int64_t)((double)delta_total_ns / (double)ratio);
+
+    // 新的绝对纳秒：基准纳秒 + 调整后的纳秒
+    int64_t base_total_ns =
+        (int64_t)g_base_clock_gettime_sec * 1000000000LL +
+        (int64_t)g_base_clock_gettime_nsec;
+    int64_t new_total_ns = base_total_ns + adjusted_ns;
+
+    // 单调性保护：不允许回退，最小 +1 递增
+    if (new_total_ns <= g_last_clock_ns) {
+        new_total_ns = g_last_clock_ns + 1;
+    }
+    g_last_clock_ns = new_total_ns;
+
+    // 分解为秒 + 纳秒，并把纳秒规范到 [0, 1e9)
+    int64_t out_sec  = new_total_ns / 1000000000LL;
+    long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
+
+    if (out_nsec < 0) {
+        out_nsec += 1000000000L;
+        out_sec  -= 1;
+    } else if (out_nsec >= 1000000000L) {
+        out_nsec -= 1000000000L;
+        out_sec  += 1;
+    }
+
+    tp->tv_sec  = (time_t)out_sec;
+    tp->tv_nsec = out_nsec;
 
     return result;
 }
@@ -400,28 +461,44 @@ static clock_t hooked_clock(void) {
 
 //
 // CFAbsoluteTimeGetCurrent: 返回当前绝对时间（相对 2001-01-01 00:00:00 GMT）
-// 被 hook 后，如果 speed_ratio != 1.0，返回被缩放的时间
-//
-// 注意：这会影响 CoreFoundation/Foundation 框架中基于 CFAbsoluteTimeGetCurrent 的计时
+// 决定：挂钟时间不做变速，避免破坏绝对时间调度。
+// 保留函数签名以维持 fishhook rebinding 表不变，内部直接调用原始实现。
 //
 static double hooked_CFAbsoluteTimeGetCurrent(void) {
-    double current_time = original_CFAbsoluteTimeGetCurrent();
-
-    if (!speedpatch_is_active()) {
-        return current_time;
-    }
-
-    float ratio = speedpatch_get_speed_ratio();
-    if (ratio <= 0.0f || ratio == 1.0f) {
-        return current_time;
-    }
-
-    return current_time / ratio;
+    // 决定：挂钟时间不做变速，避免破坏绝对时间调度。
+    return original_CFAbsoluteTimeGetCurrent();
 }
 
 // ============================================================================
 // fishhook 注册
 // ============================================================================
+
+// 初始化时间 Hook 的基准时间值，
+// 必须在 fishhook 替换 original_* 指针之后、且在用户代码真正访问时间函数之前调用。
+static void speedpatch_init_time_base(void) {
+    if (g_time_base_initialized) return;
+
+    if (original_mach_absolute_time != NULL) {
+        g_base_mach_absolute_time = original_mach_absolute_time();
+        g_last_returned_mach_time = g_base_mach_absolute_time;
+    }
+
+    if (original_clock_gettime != NULL) {
+        struct timespec tp;
+        if (original_clock_gettime(CLOCK_MONOTONIC, &tp) == 0) {
+            g_base_clock_gettime_sec  = (double)tp.tv_sec;
+            g_base_clock_gettime_nsec = (long)tp.tv_nsec;
+            g_last_clock_ns = (int64_t)tp.tv_sec * 1000000000LL + (int64_t)tp.tv_nsec;
+        }
+    }
+
+    g_time_base_initialized = true;
+    printf("[SpeedPatch] Time base initialized (mach_base=%llu, clock_monotonic_base_sec=%.0f, nsec=%ld)\n",
+           (unsigned long long)g_base_mach_absolute_time,
+           g_base_clock_gettime_sec,
+           g_base_clock_gettime_nsec);
+}
+
 static void speedpatch_hook_time_functions(void) {
     printf("[SpeedPatch] Starting to hook time functions...\n");
 
@@ -486,6 +563,9 @@ void speedpatch_init(void) {
     }
 
     speedpatch_hook_time_functions();
+
+    // 鱼钩替换完毕、original_* 指针已就绪，初始化时间基准值
+    speedpatch_init_time_base();
 
     printf("[SpeedPatch] ✅ Initialization complete. Waiting for speed control commands...\n");
 }

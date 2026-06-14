@@ -58,8 +58,7 @@ class ProcessInjector {
                 return .failure(.alreadyInjected)
             }
             
-            print("[ProcessInjector] ⚠️  Mach 注入功能暂不支持")
-            print("[ProcessInjector] 💡 请使用应用启动器 (AppLauncher) 来启动和加速应用")
+            logError("Mach injection not supported - please use AppLauncher", log: .openswift)
             
             // 标记为成功但提示用户使用其他方法
             injectedPIDs.insert(pid)
@@ -74,10 +73,10 @@ class ProcessInjector {
                 return .failure(.notInjected)
             }
             
-            print("[ProcessInjector] 从 PID \(pid) 卸载")
+            logDebug("Ejecting from PID \(pid)", log: .openswift)
             injectedPIDs.remove(pid)
             
-            print("[ProcessInjector] ✅ 成功从 PID \(pid) 卸载")
+            logInfo("Successfully ejected from PID \(pid)", log: .openswift)
             
             return .success(())
         }

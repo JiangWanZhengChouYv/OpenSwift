@@ -13,32 +13,32 @@ class HotkeyStorage {
             let encoder = JSONEncoder()
             let data = try encoder.encode(configurations)
             userDefaults.set(data, forKey: HotkeyStorage.storageKey)
-            print("[HotkeyStorage] Saved \(configurations.count) hotkey configurations")
+            logDebug("Saved \(configurations.count) hotkey configurations", log: .hotkey)
         } catch {
-            print("[HotkeyStorage] Failed to save configurations: \(error)")
+            logError("Failed to save configurations: \(error.localizedDescription)", log: .hotkey)
         }
     }
 
     func load() -> [HotkeyConfig] {
         guard let data = userDefaults.data(forKey: HotkeyStorage.storageKey) else {
-            print("[HotkeyStorage] No saved configurations found, using defaults")
+            logDebug("No saved configurations found, using defaults", log: .hotkey)
             return HotkeyConfig.defaultConfigurations()
         }
 
         do {
             let decoder = JSONDecoder()
             let configurations = try decoder.decode([HotkeyConfig].self, from: data)
-            print("[HotkeyStorage] Loaded \(configurations.count) hotkey configurations")
+            logDebug("Loaded \(configurations.count) hotkey configurations", log: .hotkey)
             return configurations
         } catch {
-            print("[HotkeyStorage] Failed to load configurations: \(error)")
+            logError("Failed to load configurations: \(error.localizedDescription)", log: .hotkey)
             return HotkeyConfig.defaultConfigurations()
         }
     }
 
     func resetToDefaults() {
         userDefaults.removeObject(forKey: HotkeyStorage.storageKey)
-        print("[HotkeyStorage] Reset to default configurations")
+        logInfo("Reset to default configurations", log: .hotkey)
     }
 
     func saveSingle(_ config: HotkeyConfig) {

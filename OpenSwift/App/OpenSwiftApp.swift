@@ -13,7 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindow: NSWindow?
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        print("[AppDelegate] applicationDidFinishLaunching - START")
+        logInfo("applicationDidFinishLaunching - START", log: .openswift)
         
         // 第一步: 激活应用到前台
         NSApp.activate(ignoringOtherApps: true)
@@ -32,7 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         mainWindow = window
         
-        print("[AppDelegate] Window should now be visible")
+        logDebug("Window should now be visible", log: .openswift)
         
         // 第三步: 异步初始化其他组件 (在 window 显示之后)
         // 这样即使某个组件初始化慢，用户也能先看到窗口
@@ -42,17 +42,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func finishInitialization() {
-        print("[AppDelegate] Starting delayed initialization...")
+        logDebug("Starting delayed initialization...", log: .openswift)
         
         // 按顺序初始化，确保依赖关系正确
         // 1. SettingsStorage 通过 AppSettings.shared 隐式初始化
-        // 2. AppSettings.finishInitialization() 触发 didSet 副作用
+        // 2. AppSettings.bootstrapSideEffects() 启动 didSet 副作用
         // 3. MenuBarController.setup() 读取 AppSettings.showInMenuBar
         // 4. HotkeyService.setup() 读取 AppSettings.hotkeyEnabled
         // 5. SpeedControlState.setup() 读取 AppSettings.lastUsedSpeed
         // 6. AppLauncherViewModel.setup() 创建 Timer
-        
-        AppSettings.shared.finishInitialization()
+
+        AppSettings.shared.bootstrapSideEffects()
         MenuBarController.shared.setup()
         HotkeyService.shared.setup()
         SpeedControlState.shared.setup()
@@ -65,11 +65,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupWindowDelegate()
         restoreWindowPosition()
         
-        print("[AppDelegate] ✅ OpenSwift launched successfully")
+        logInfo("OpenSwift launched successfully", log: .openswift)
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
-        print("[AppDelegate] Application terminating, cleaning up...")
+        logDebug("Application terminating, cleaning up...", log: .openswift)
         
         saveWindowPosition()
         ProcessManagerProvider.shared.manager.cleanupAll()

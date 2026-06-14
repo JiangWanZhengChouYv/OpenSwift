@@ -1,18 +1,20 @@
 import AppKit
+import os.log
 
-print("[main] === OpenSwift 启动 ===")
-print("[main] 步骤 1: 获取 NSApplication.shared")
+let mainLog = OSLog(subsystem: "com.openswift.app", category: "App")
+os_log("=== OpenSwift ===", log: mainLog, type: .info)
+os_log("Step 1: Getting NSApplication.shared", log: mainLog, type: .debug)
 
 let app = NSApplication.shared
 
-print("[main] 步骤 2: 设置 setActivationPolicy(.regular)")
+os_log("Step 2: Setting activation policy to .regular", log: mainLog, type: .debug)
 app.setActivationPolicy(.regular)
 
-print("[main] 步骤 3: 创建 AppDelegate")
+os_log("Step 3: Creating AppDelegate", log: mainLog, type: .debug)
 let delegate = AppDelegate()
 
-print("[main] 步骤 4: 设置 delegate")
+os_log("Step 4: Setting delegate", log: mainLog, type: .debug)
 app.delegate = delegate
 
-print("[main] 步骤 5: 调用 app.run()")
+os_log("Step 5: Calling app.run()", log: mainLog, type: .debug)
 app.run()

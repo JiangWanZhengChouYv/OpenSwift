@@ -9,16 +9,19 @@ class ProcessManager: ObservableObject {
     @Published var searchText: String = ""
     @Published var sortOption: ProcessSortOption = .name
     @Published var isLoading: Bool = false
-    
+
     @Published var injectedProcesses: [InjectedProcess] = []
     @Published var processGroups: [ProcessGroup] = []
-    
+
     private var cancellables = Set<AnyCancellable>()
     private var processObserver: NSObjectProtocol?
     private var isSetup: Bool = false
-    
+
     private let cleanupQueue = DispatchQueue(label: "com.openswift.cleanup", qos: .utility)
-    
+    /// 为每个被注入进程维护一个独立的 SpeedControlManager，避免全局单例共享上下文。
+    private var speedControllers: [pid_t: SpeedControlManager] = [:]
+    private let controllerQueue = DispatchQueue(label: "com.openswift.processmanager.controllers", qos: .userInitiated)
+
     private var lastRefreshTime: Date = .distantPast
     private let minimumRefreshInterval: TimeInterval = 1.0
     
@@ -232,27 +235,48 @@ class ProcessManager: ObservableObject {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].speedRatio = speedRatio
 
-            let manager = SpeedControlManager.shared
-            if !manager.isConnected {
-                _ = manager.attachToProcess(pid: pid)
+            let controller = controller(for: pid)
+            if !controller.isConnected {
+                _ = controller.attachToProcess(pid: pid)
             }
-            _ = manager.setSpeedRatio(Float(speedRatio))
+            _ = controller.setSpeedRatio(Float(speedRatio))
 
             log("Updated speed ratio to \(speedRatio) for PID \(pid)", level: .debug)
         }
     }
-    
+
     func updateInjectedProcess(pid: pid_t, isEnabled: Bool) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].isEnabled = isEnabled
 
-            let manager = SpeedControlManager.shared
-            if !manager.isConnected {
-                _ = manager.attachToProcess(pid: pid)
+            let controller = controller(for: pid)
+            if !controller.isConnected {
+                _ = controller.attachToProcess(pid: pid)
             }
-            _ = manager.setEnabled(isEnabled)
+            _ = controller.setEnabled(isEnabled)
 
             log("Updated enabled state to \(isEnabled) for PID \(pid)", level: .debug)
+        }
+    }
+
+    // MARK: - Internal controller management (per pid)
+
+    private func controller(for pid: pid_t) -> SpeedControlManager {
+        controllerQueue.sync {
+            if let existing = speedControllers[pid] {
+                return existing
+            }
+            let controller = SpeedControlManager(pid: pid)
+            speedControllers[pid] = controller
+            return controller
+        }
+    }
+
+    private func removeController(for pid: pid_t) {
+        controllerQueue.sync {
+            if let controller = speedControllers.removeValue(forKey: pid) {
+                controller.detachAndCleanup()
+            }
         }
     }
     
@@ -325,10 +349,17 @@ class ProcessManager: ObservableObject {
     }
     
     private func cleanupSharedMemory(for pid: pid_t) {
-        cleanupQueue.async {
-            let sharedMemory = InjectionProtocol.SharedMemoryManager(pid: pid)
-            sharedMemory.cleanup()
-            self.log("Cleaned up shared memory for PID \(pid)", level: .debug)
+        cleanupQueue.async { [weak self] in
+            guard let self else { return }
+            // 优先使用我们自己内部维护的控制器；否则创建一个临时控制器来按 key 删除共享内存
+            let controller = self.controllerQueue.sync { () -> SpeedControlManager in
+                if let existing = self.speedControllers.removeValue(forKey: pid) {
+                    return existing
+                }
+                return SpeedControlManager(pid: pid)
+            }
+            controller.detachAndCleanup()
+            logDebug("Cleaned up shared memory for PID \(pid)", log: .openswift)
         }
     }
     

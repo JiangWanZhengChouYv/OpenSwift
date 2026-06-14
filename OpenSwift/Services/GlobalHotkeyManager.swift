@@ -25,8 +25,8 @@ class GlobalHotkeyManager {
             self?.handleKeyEvent(event)
         }
 
-        if let monitor = eventMonitor {
-            print("[GlobalHotkeyManager] Started global monitor with \(configurations.count) configurations")
+        if eventMonitor != nil {
+            logInfo("Started global monitor with \(configurations.count) configurations", log: .hotkey)
         }
     }
 
@@ -34,7 +34,7 @@ class GlobalHotkeyManager {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
-            print("[GlobalHotkeyManager] Stopped global monitor")
+            logDebug("Stopped global monitor", log: .hotkey)
         }
     }
 
@@ -62,7 +62,7 @@ class GlobalHotkeyManager {
             )
 
             if keyCode == config.keyCode && eventModifiers == config.modifiers {
-                print("[GlobalHotkeyManager] Hotkey matched: \(config.action.displayName)")
+                logDebug("Hotkey matched: \(config.action.displayName)", log: .hotkey)
                 actionHandler?(config.action)
                 return
             }
@@ -77,12 +77,12 @@ class GlobalHotkeyManager {
     func checkAccessibilityPermissions() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
         let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
-        print("[GlobalHotkeyManager] Accessibility permissions: \(isTrusted)")
+        logDebug("Accessibility permissions: \(isTrusted)", log: .hotkey)
     }
 
     func requestAccessibilityPermissions() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
-        print("[GlobalHotkeyManager] Requested accessibility permissions")
+        logDebug("Requested accessibility permissions", log: .hotkey)
     }
 }

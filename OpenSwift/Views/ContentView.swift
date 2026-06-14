@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
-    @ObservedObject private var speedControlState = SpeedControlState.shared
-    @ObservedObject private var hotkeyService = HotkeyService.shared
-    @ObservedObject private var appSettings = AppSettings.shared
-    @ObservedObject private var appLauncherViewModel = AppLauncherViewModel.shared
+    @StateObject private var speedControlState = SpeedControlState.shared
+    @StateObject private var hotkeyService = HotkeyService.shared
+    @StateObject private var appSettings = AppSettings.shared
+    @StateObject private var appLauncherViewModel = AppLauncherViewModel.shared
     
     @State private var showProcessList: Bool = true
     @State private var showHotkeySettings: Bool = false
