@@ -1,5 +1,14 @@
 import Foundation
 
+// shm_open/shm_unlink 在 POSIX 中被声明为变参函数（第三参仅 O_CREAT 时使用），
+// Swift 将 C 的变参声明标记为 unavailable。这里通过 @_silgen_name 重新声明为
+// 非变参形式，使 Swift 可以正确链接到 libc 的 shm_open/shm_unlink 符号。
+@_silgen_name("shm_open")
+func shm_open(_ name: UnsafePointer<CChar>!, _ oflag: Int32, _ mode: mode_t) -> Int32
+
+@_silgen_name("shm_unlink")
+func shm_unlink(_ name: UnsafePointer<CChar>!) -> Int32
+
 // MARK: - 共享内存字段偏移常量 (与 C 端 SharedMemoryHeader 完全一致)
 //
 // 布局:

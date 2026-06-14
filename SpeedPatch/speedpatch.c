@@ -247,9 +247,6 @@ static usleep_t original_usleep = NULL;
 static clock_t_func_t original_clock = NULL;
 static CFAbsoluteTimeGetCurrent_t original_CFAbsoluteTimeGetCurrent = NULL;
 
-static uint64_t mach_absolute_time_to_units(uint64_t mach_time);
-static uint64_t units_to_mach_absolute_time(uint64_t units);
-
 //
 // mach_absolute_time: 返回系统启动后的绝对时间（单位依赖 mach_timebase_info）
 // 被 hook 后，如果 speed_ratio != 1.0，返回被缩放的时间（基于基准时间法）
@@ -289,26 +286,6 @@ static uint64_t hooked_mach_absolute_time(void) {
     g_last_returned_mach_time = result;
 
     return result;
-}
-
-static uint64_t mach_absolute_time_to_units(uint64_t mach_time) {
-    mach_timebase_info_data_t timebase;
-    kern_return_t kr = mach_timebase_info(&timebase);
-    if (kr != KERN_SUCCESS) {
-        return mach_time;
-    }
-
-    return (mach_time * timebase.numer) / timebase.denom;
-}
-
-static uint64_t units_to_mach_absolute_time(uint64_t units) {
-    mach_timebase_info_data_t timebase;
-    kern_return_t kr = mach_timebase_info(&timebase);
-    if (kr != KERN_SUCCESS) {
-        return units;
-    }
-
-    return (units * timebase.denom) / timebase.numer;
 }
 
 //
