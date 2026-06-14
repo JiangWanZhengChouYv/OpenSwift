@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <time.h>
 #include <errno.h>
 
@@ -14,7 +15,7 @@
 
 // 魔术数字，用于验证共享内存已正确初始化
 #define SPDM_MAGIC 0x5350444D
-#define SPDM_VERSION 1
+#define SPDM_VERSION 2
 
 // 与 Swift/C 端相同的布局（无锁，原子读写）
 typedef struct {
@@ -27,6 +28,15 @@ typedef struct {
     uint64_t timestamp;
     uint8_t  reserved[40];
 } SharedMemoryHeader;
+
+// 编译时断言：验证结构体大小和字段偏移（与 speedpatch.h / Swift 端 SharedMemoryLayout 保持一致）
+_Static_assert(sizeof(SharedMemoryHeader) == 72, "SharedMemoryHeader size mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, magic) == 0, "magic offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, version) == 4, "version offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, owner_pid) == 8, "owner_pid offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, speed_ratio) == 12, "speed_ratio offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, is_active) == 16, "is_active offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, timestamp) == 24, "timestamp offset mismatch");
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {

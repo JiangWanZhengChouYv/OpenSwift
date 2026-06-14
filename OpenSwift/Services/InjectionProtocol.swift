@@ -20,11 +20,4 @@ enum InjectionProtocol {
     }
 }
 
-@_silgen_name("shm_open")
-func shm_open(_ name: UnsafePointer<CChar>!, _ oflag: Int32, _ mode: mode_t) -> Int32
-
-@_silgen_name("shm_unlink")
-func shm_unlink(_ name: UnsafePointer<CChar>!) -> Int32
-
-@_silgen_name("ftok")
-func ftok(_ path: UnsafePointer<CChar>!, _ id: Int32) -> key_t
+// 注：POSIX 函数 shm_open / shm_unlink 通过 import Foundation 直接可用，无需 @_silgen_name 声明
