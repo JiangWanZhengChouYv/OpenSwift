@@ -302,10 +302,11 @@ struct AppSelectorView: View {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.applicationBundle]
+        panel.allowedContentTypes = [.applicationBundle, .executable]
+        panel.allowsOtherFileTypes = true
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.title = "选择应用"
-        panel.message = "选择要启动并加速的应用"
+        panel.title = "选择应用或可执行文件"
+        panel.message = "选择要启动并加速的应用（.app）或可执行文件"
         
         if panel.runModal() == .OK, let url = panel.url {
             onSelectApp(url)

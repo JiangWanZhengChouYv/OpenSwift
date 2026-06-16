@@ -74,7 +74,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showAppSelector) {
             AppSelectorView { url in
-                appLauncherViewModel.launchApp(at: url)
+                if url.pathExtension == "app" {
+                    appLauncherViewModel.launchApp(at: url)
+                } else {
+                    appLauncherViewModel.launchExecutable(at: url)
+                }
             }
         }
         .sheet(isPresented: $showErrorAlert) {

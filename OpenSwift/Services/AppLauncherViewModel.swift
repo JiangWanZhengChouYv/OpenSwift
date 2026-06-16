@@ -142,6 +142,29 @@ class AppLauncherViewModel: ObservableObject {
             }
         }
     }
+    
+    func launchExecutable(at url: URL) {
+        let result = AppLauncher.shared.launchExecutable(at: url)
+
+        switch result {
+        case .success(let process):
+            DispatchQueue.main.async { [weak self] in
+                self?.successMessage = "成功启动 \(process.appName)"
+                self?.showSuccess = true
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                    self?.showSuccess = false
+                }
+
+                self?.refreshLaunchedProcesses()
+            }
+        case .failure(let error):
+            DispatchQueue.main.async { [weak self] in
+                self?.errorMessage = error.localizedDescription
+                self?.showError = true
+            }
+        }
+    }
 
     func terminateProcess(_ process: LaunchedProcess) {
         disconnectFromProcess()

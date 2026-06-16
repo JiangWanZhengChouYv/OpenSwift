@@ -227,6 +227,57 @@ class AppLauncher {
 
         return launchApp(at: appURL)
     }
+    
+    func launchExecutable(at url: URL) -> Result<LaunchedProcess, AppLauncherError> {
+        return launchQueue.sync {
+            logDebug("Preparing to launch executable: \(url.path)", log: .launcher)
+
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                logError("Executable not found: \(url.path)", log: .launcher)
+                return .failure(.appNotFound)
+            }
+
+            let dylibPath: String
+            switch getDylibPath() {
+            case .success(let p): dylibPath = p
+            case .failure(let err): return .failure(err)
+            }
+
+            let appName = url.lastPathComponent
+            logDebug("Executable name: \(appName)", log: .launcher)
+
+            let process = Process()
+            process.executableURL = url
+            process.environment = [
+                "DYLD_INSERT_LIBRARIES": dylibPath,
+                "DYLD_FORCE_FLAT_NAMESPACE": "1"
+            ]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = pipe
+
+            do {
+                try process.run()
+                let launchedPID = process.processIdentifier
+                logInfo("Executable launched successfully, PID: \(launchedPID)", log: .launcher)
+
+                let launchedProcess = LaunchedProcess(
+                    pid: launchedPID,
+                    appURL: url,
+                    appName: appName
+                )
+
+                launchedProcesses.append(launchedProcess)
+                logDebug("Recorded launched executable: \(appName) (PID: \(launchedPID))", log: .launcher)
+
+                return .success(launchedProcess)
+            } catch {
+                logError("Failed to launch executable: \(error.localizedDescription)", log: .launcher)
+                return .failure(.launchFailed(error.localizedDescription))
+            }
+        }
+    }
 
     func terminateProcess(_ process: LaunchedProcess) -> Result<Void, AppLauncherError> {
         return launchQueue.sync {
