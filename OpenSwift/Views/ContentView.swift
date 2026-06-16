@@ -14,6 +14,7 @@ struct ContentView: View {
     
     @State private var showErrorAlert: Bool = false
     @State private var errorAlertMessage: String = ""
+    @State private var showAppSelector: Bool = false
     
     var body: some View {
         HSplitView {
@@ -71,6 +72,11 @@ struct ContentView: View {
                 showFirstLaunch = false
             }
         }
+        .sheet(isPresented: $showAppSelector) {
+            AppSelectorView { url in
+                appLauncherViewModel.launchApp(at: url)
+            }
+        }
         .sheet(isPresented: $showErrorAlert) {
             ErrorAlertView(title: "错误", message: errorAlertMessage) {
                 showErrorAlert = false
@@ -81,6 +87,14 @@ struct ContentView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     showFirstLaunch = true
                 }
+            }
+            
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("OpenAppSelector"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                showAppSelector = true
             }
         }
         .onChange(of: appLauncherViewModel.showError) { newValue in
