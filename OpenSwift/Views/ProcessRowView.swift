@@ -253,34 +253,49 @@ struct ProcessRowViewWithContextMenu: View {
         
         // 2. 尝试找到应用路径并重新启动
         var appURL: URL?
+        var isExecutable = false
         
-        // 方法1: 从 bundle identifier 查找
+        // 方法1: 从 bundle identifier 查找（.app 应用）
         if let bundleId = process.bundleIdentifier,
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
             appURL = url
         }
         // 方法2: 从进程路径推导
         else if let path = process.path {
-            var url = URL(fileURLWithPath: path)
-            // 如果是可执行文件路径，需要找到 .app 包
-            while !url.pathExtension.isEmpty || !url.lastPathComponent.contains(".app") {
-                if url.pathExtension == "app" || url.lastPathComponent.contains(".app") {
-                    break
-                }
-                url = url.deletingLastPathComponent()
-                if url.path == "/" {
-                    break
-                }
-            }
+            let url = URL(fileURLWithPath: path)
+            // 如果路径以 .app 结尾，说明是应用包
             if url.pathExtension == "app" || url.lastPathComponent.contains(".app") {
                 appURL = url
+            }
+            // 否则尝试向上查找 .app 包
+            else {
+                var currentUrl = url
+                while !currentUrl.pathExtension.isEmpty || !currentUrl.lastPathComponent.contains(".app") {
+                    if currentUrl.pathExtension == "app" || currentUrl.lastPathComponent.contains(".app") {
+                        appURL = currentUrl
+                        break
+                    }
+                    currentUrl = currentUrl.deletingLastPathComponent()
+                    if currentUrl.path == "/" {
+                        break
+                    }
+                }
+                // 如果找不到 .app 包，直接使用原路径作为可执行文件
+                if appURL == nil {
+                    appURL = url
+                    isExecutable = true
+                }
             }
         }
         
         if let url = appURL {
             // 延迟启动，确保原进程已终止
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                appLauncherViewModel.launchApp(at: url)
+                if isExecutable {
+                    appLauncherViewModel.launchExecutable(at: url)
+                } else {
+                    appLauncherViewModel.launchApp(at: url)
+                }
             }
         } else {
             // 无法找到应用路径，显示错误
