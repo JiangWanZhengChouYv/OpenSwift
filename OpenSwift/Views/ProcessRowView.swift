@@ -246,61 +246,75 @@ struct ProcessRowViewWithContextMenu: View {
     }
     
     private func restartAppWithDYLD() {
-        // 1. 先终止当前进程
+        // 步骤 1: 先终止当前进程（如果还在运行）
         if let runningApp = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == process.pid }) {
             runningApp.terminate()
         }
         
-        // 2. 尝试找到应用路径并重新启动
-        var appURL: URL?
-        var isExecutable = false
+        // 步骤 2: 找到应用路径并重新启动
+        var targetURL: URL?
+        var launchAsExecutable = false
         
-        // 方法1: 从 bundle identifier 查找（.app 应用）
+        // 策略 A: 通过 bundle identifier 查找 .app 包（最可靠）
         if let bundleId = process.bundleIdentifier,
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            appURL = url
+            targetURL = url
         }
-        // 方法2: 从进程路径推导
+        // 策略 B: 从可执行文件路径向上查找 .app 包
         else if let path = process.path {
-            let url = URL(fileURLWithPath: path)
-            // 如果路径以 .app 结尾，说明是应用包
-            if url.pathExtension == "app" || url.lastPathComponent.contains(".app") {
-                appURL = url
+            let executableURL = URL(fileURLWithPath: path)
+            
+            var searchURL = executableURL
+            var foundAppBundle = false
+            
+            while !searchURL.pathComponents.isEmpty {
+                if searchURL.pathExtension == "app" {
+                    targetURL = searchURL
+                    foundAppBundle = true
+                    break
+                }
+                // 检查是否包含 .app 目录（如 "MyApp.app"）
+                if searchURL.lastPathComponent.contains(".app") {
+                    targetURL = searchURL
+                    foundAppBundle = true
+                    break
+                }
+                
+                // 到达根目录则停止
+                if searchURL.path == "/" || searchURL.pathComponents.count <= 1 {
+                    break
+                }
+                searchURL = searchURL.deletingLastPathComponent()
             }
-            // 否则尝试向上查找 .app 包
-            else {
-                var currentUrl = url
-                while !currentUrl.pathExtension.isEmpty || !currentUrl.lastPathComponent.contains(".app") {
-                    if currentUrl.pathExtension == "app" || currentUrl.lastPathComponent.contains(".app") {
-                        appURL = currentUrl
-                        break
-                    }
-                    currentUrl = currentUrl.deletingLastPathComponent()
-                    if currentUrl.path == "/" {
-                        break
-                    }
-                }
-                // 如果找不到 .app 包，直接使用原路径作为可执行文件
-                if appURL == nil {
-                    appURL = url
-                    isExecutable = true
-                }
+            
+            // 策略 C: 找不到 .app 包，直接使用可执行文件路径
+            if !foundAppBundle {
+                targetURL = executableURL
+                launchAsExecutable = true
             }
         }
         
-        if let url = appURL {
-            // 延迟启动，确保原进程已终止
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                if isExecutable {
+        // 步骤 3: 启动应用
+        if let url = targetURL {
+            // 等待原进程完全终止（给系统一点时间清理）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if launchAsExecutable {
                     appLauncherViewModel.launchExecutable(at: url)
                 } else {
                     appLauncherViewModel.launchApp(at: url)
                 }
             }
         } else {
-            // 无法找到应用路径，显示错误
+            // 无法找到应用路径，显示详细错误
             DispatchQueue.main.async {
-                appLauncherViewModel.errorMessage = "无法找到应用 \(process.name) 的路径"
+                let missingInfo = [
+                    process.bundleIdentifier != nil ? "bundleId: \(process.bundleIdentifier!)" : nil,
+                    process.path != nil ? "path: \(process.path!)" : nil,
+                    "name: \(process.name)",
+                    "pid: \(process.pid)"
+                ].compactMap { $0 }.joined(separator: ", ")
+                
+                appLauncherViewModel.errorMessage = "无法找到应用 \(process.name) 的启动路径（\(missingInfo)）。请通过主界面的应用选择器重新启动。"
                 appLauncherViewModel.showError = true
             }
         }
