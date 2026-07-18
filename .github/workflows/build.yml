@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build OpenSwift
+        run: |
+          xcodebuild \
+            -project OpenSwift.xcodeproj \
+            -scheme OpenSwift \
+            -configuration Debug \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO | tail -20
+
+      - name: Build SpeedPatch
+        run: |
+          xcodebuild \
+            -project OpenSwift.xcodeproj \
+            -scheme SpeedPatch \
+            -configuration Debug \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO | tail -20

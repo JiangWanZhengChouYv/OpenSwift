@@ -6,9 +6,9 @@
 .LSOverride
 ._*
 
-# Xcode 用户数据和工作区
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+# Xcode 项目文件 (使用 XcodeGen 生成，不纳入版本控制)
+*.xcodeproj
+*.xcworkspace
 *.xcuserstate
 *.xcscmblueprint
 *.xccheckout
@@ -38,6 +38,15 @@ DerivedData/
 
 # Trae IDE
 .trae/
+
+# 项目规则文件 (本地维护，不纳入版本控制)
+AGENTS.md
+
+# 临时目录
+临时/
+
+# 临时报告文件
+Fix-Report.md
 
 # 项目文档 (按需取消注释)
 # 任务板.md
