@@ -41,3 +41,14 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO | tail -20
+
+      - name: Build openswift-cli
+        run: |
+          xcodebuild \
+            -project OpenSwift.xcodeproj \
+            -target openswift-cli \
+            -configuration Debug \
+            build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO | tail -20
