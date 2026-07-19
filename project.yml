@@ -22,6 +22,7 @@ targets:
       - path: OpenSwift
         excludes:
           - "**/.DS_Store"
+          - "CLI/**"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openswift.mac

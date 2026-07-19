@@ -12,8 +12,10 @@ import AppKit
 /// 1. 环境变量 OPENSWIFT_DYLIB_PATH 指定的路径（如果是目录，查找其中的 SpeedPatch.dylib）
 /// 2. 与 CLI 可执行文件同级的 PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch
 /// 3. 与 CLI 可执行文件同级的 PlugIns/SpeedPatch.dylib/Contents/MacOS/SpeedPatch
-/// 4. 当前工作目录下的 SpeedPatch.dylib
-/// 5. 找不到则返回 nil
+/// 4. CLI 同级目录下的 OpenSwift.app 内嵌 dylib（用于 CLI 与 .app 共存的部署场景）
+/// 5. 当前工作目录下的 SpeedPatch.dylib
+/// 6. 当前工作目录下 OpenSwift.app 内嵌 dylib
+/// 7. 找不到则返回 nil
 ///
 /// - Returns: 找到的 dylib 路径，找不到返回 nil
 func findDylibPath() -> String? {
@@ -53,14 +55,28 @@ func findDylibPath() -> String? {
         return path3
     }
 
-    // 4. 当前工作目录下的 SpeedPatch.dylib
-    let cwd = fileManager.currentDirectoryPath
-    let path4 = (cwd as NSString).appendingPathComponent("SpeedPatch.dylib")
+    // 4. CLI 同级目录下的 OpenSwift.app 内嵌 dylib
+    let path4 = (cliDir as NSString)
+        .appendingPathComponent("OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
     if fileManager.fileExists(atPath: path4) {
         return path4
     }
 
-    // 5. 找不到
+    // 5. 当前工作目录下的 SpeedPatch.dylib
+    let cwd = fileManager.currentDirectoryPath
+    let path5 = (cwd as NSString).appendingPathComponent("SpeedPatch.dylib")
+    if fileManager.fileExists(atPath: path5) {
+        return path5
+    }
+
+    // 6. 当前工作目录下 OpenSwift.app 内嵌 dylib
+    let path6 = (cwd as NSString)
+        .appendingPathComponent("OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
+    if fileManager.fileExists(atPath: path6) {
+        return path6
+    }
+
+    // 7. 找不到
     return nil
 }
 
