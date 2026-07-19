@@ -45,6 +45,9 @@ AGENTS.md
 # 临时目录
 临时/
 
+# CLI 编译产物 (OpenSwift 目录下可能被复制的 openswift 可执行文件)
+OpenSwift/openswift
+
 # 临时报告文件
 Fix-Report.md
 
