@@ -91,22 +91,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func saveWindowPosition() {
-        if let frame = mainWindow?.frame {
-            AppSettings.shared.windowPosition = frame.origin
-            AppSettings.shared.windowSize = frame.size
+        if let window = mainWindow {
+            AppSettings.shared.windowPosition = window.frame.origin
+            AppSettings.shared.windowSize = window.frame.size
         }
     }
     
     private func restoreWindowPosition() {
-        if let position = AppSettings.shared.windowPosition {
-            mainWindow?.setFrameOrigin(position)
+        if let position = AppSettings.shared.windowPosition,
+           let window = mainWindow {
+            window.setFrameOrigin(position)
         }
         
-        if let size = AppSettings.shared.windowSize {
-            if var frame = mainWindow?.frame {
-                frame.size = size
-                mainWindow?.setFrame(frame, display: true)
-            }
+        if let size = AppSettings.shared.windowSize,
+           let window = mainWindow {
+            var frame = window.frame
+            frame.size = size
+            window.setFrame(frame, display: true)
         }
     }
     
@@ -243,8 +244,12 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         
-        if window == mainWindow && AppSettings.shared.minimizeToTray {
-            window.orderOut(nil)
+        if window == mainWindow {
+            if AppSettings.shared.minimizeToTray {
+                window.orderOut(nil)
+            } else {
+                mainWindow = nil
+            }
         }
     }
     
