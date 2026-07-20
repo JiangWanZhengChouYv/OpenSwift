@@ -60,6 +60,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AppLauncher.shared.setup()
         ProcessHistory.shared.setup()
         ProcessManagerProvider.shared.manager.setup()
+        CLIManager.shared.setup()
         
         setupMenu()
         setupWindowDelegate()

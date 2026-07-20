@@ -40,6 +40,12 @@ targets:
         copy:
           destination: plugins
           subpath: "SpeedPatch"
+      - target: openswift-cli
+        embed: true
+        codeSign: false
+        copy:
+          destination: sharedSupport
+          subpath: ""
 
   SpeedPatch:
     type: bundle
@@ -80,3 +86,4 @@ targets:
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
         SWIFT_VERSION: "5.0"
+        SWIFT_FORCE_STATIC_STDLIBS: YES
