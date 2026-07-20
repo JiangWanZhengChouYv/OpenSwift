@@ -36,10 +36,9 @@ struct SettingsView: View {
             ForEach(SettingsTab.allCases) { tab in
                 Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tab } }) {
                     HStack(spacing: 10) {
-                        let iconImage = Image(systemName: tab.iconName)
+                        Image(systemName: tab.iconName)
                             .font(.system(size: 14))
                             .frame(width: 20)
-                        iconImage
                         Text(tab.title).font(.system(size: 13))
                         Spacer()
                     }
