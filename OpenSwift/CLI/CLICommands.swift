@@ -18,75 +18,87 @@ let minSpeedRatio: Float = 0.1
 let maxSpeedRatio: Float = 10.0
 let defaultSpeedRatio: Float = 1.0
 
-@_silgen_name("shm_open")
-func shm_open(_ name: UnsafePointer<CChar>!, _ oflag: Int32, _ mode: mode_t) -> Int32
-
-@_silgen_name("shm_unlink")
-func shm_unlink(_ name: UnsafePointer<CChar>!) -> Int32
-
 func findDylibPath() -> String? {
+    if let path = findDylibFromEnvironment() { return path }
+    if let path = findDylibFromCLIDirectory() { return path }
+    if let path = findDylibFromCurrentDirectory() { return path }
+    if let path = findDylibFromCommonPaths() { return path }
+    return nil
+}
+
+private func findDylibFromEnvironment() -> String? {
     let fileManager = FileManager.default
-
-    if let envPath = ProcessInfo.processInfo.environment["OPENSWIFT_DYLIB_PATH"] {
-        var isDir: ObjCBool = false
-        if fileManager.fileExists(atPath: envPath, isDirectory: &isDir) {
-            if isDir.boolValue {
-                let candidateInDir = (envPath as NSString).appendingPathComponent("SpeedPatch.dylib")
-                if fileManager.fileExists(atPath: candidateInDir) {
-                    return candidateInDir
-                }
-            } else {
-                return envPath
-            }
-        }
+    guard let envPath = ProcessInfo.processInfo.environment["OPENSWIFT_DYLIB_PATH"] else {
+        return nil
     }
+    var isDir: ObjCBool = false
+    guard fileManager.fileExists(atPath: envPath, isDirectory: &isDir) else {
+        return nil
+    }
+    if isDir.boolValue {
+        let candidate = (envPath as NSString).appendingPathComponent("SpeedPatch.dylib")
+        return fileManager.fileExists(atPath: candidate) ? candidate : nil
+    }
+    return envPath
+}
 
+private func findDylibFromCLIDirectory() -> String? {
+    let fileManager = FileManager.default
     let cliDir = Bundle.main.bundleURL.path
-
-    let path2 = (cliDir as NSString)
-        .appendingPathComponent("PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
-    if fileManager.fileExists(atPath: path2) {
-        return path2
-    }
-
-    let path3 = (cliDir as NSString)
-        .appendingPathComponent("PlugIns/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
-    if fileManager.fileExists(atPath: path3) {
-        return path3
-    }
-
-    let path4 = (cliDir as NSString)
-        .appendingPathComponent("OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
-    if fileManager.fileExists(atPath: path4) {
-        return path4
-    }
-
-    let cwd = fileManager.currentDirectoryPath
-    let path5 = (cwd as NSString).appendingPathComponent("SpeedPatch.dylib")
-    if fileManager.fileExists(atPath: path5) {
-        return path5
-    }
-
-    let path6 = (cwd as NSString)
-        .appendingPathComponent("OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch")
-    if fileManager.fileExists(atPath: path6) {
-        return path6
-    }
-
-    // 常见安装路径
-    let commonPaths = [
-        "/Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch",
-        (NSHomeDirectory() as NSString)
-            .appendingPathComponent(
-                "Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
-            )
+    
+    let paths = [
+        (cliDir as NSString).appendingPathComponent(
+            "PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+        ),
+        (cliDir as NSString).appendingPathComponent(
+            "PlugIns/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+        ),
+        (cliDir as NSString).appendingPathComponent(
+            "OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+        )
     ]
-    for path in commonPaths {
+    
+    for path in paths {
         if fileManager.fileExists(atPath: path) {
             return path
         }
     }
+    return nil
+}
 
+private func findDylibFromCurrentDirectory() -> String? {
+    let fileManager = FileManager.default
+    let cwd = fileManager.currentDirectoryPath
+    
+    let path1 = (cwd as NSString).appendingPathComponent("SpeedPatch.dylib")
+    if fileManager.fileExists(atPath: path1) {
+        return path1
+    }
+    
+    let path2 = (cwd as NSString).appendingPathComponent(
+        "OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+    )
+    if fileManager.fileExists(atPath: path2) {
+        return path2
+    }
+    
+    return nil
+}
+
+private func findDylibFromCommonPaths() -> String? {
+    let fileManager = FileManager.default
+    let paths = [
+        "/Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch",
+        (NSHomeDirectory() as NSString).appendingPathComponent(
+            "Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+        )
+    ]
+    
+    for path in paths {
+        if fileManager.fileExists(atPath: path) {
+            return path
+        }
+    }
     return nil
 }
 
@@ -279,133 +291,4 @@ func smartMode(at path: String) -> Int32 {
         // 3. 如果没找到，调用 launchWithDYLD
         return launchWithDYLD(at: path)
     }
-}
-
-// MARK: - 速度控制
-
-private func openSharedMemory(pid: pid_t) -> (fd: Int32, pointer: UnsafeMutableRawPointer)? {
-    let key = sharedMemoryKeyPrefix + String(pid)
-
-    // O_RDWR 打开已存在的共享内存（不创建）
-    let fd = key.withCString { cKey in
-        shm_open(cKey, O_RDWR, 0)
-    }
-
-    if fd == -1 {
-        return nil
-    }
-
-    // 映射共享内存（mmap 返回 UnsafeMutableRawPointer?，MAP_FAILED 是非 nil 失败标记）
-    let mapped = mmap(nil,
-                      SharedMemoryLayout.size,
-                      PROT_READ | PROT_WRITE,
-                      MAP_SHARED,
-                      fd,
-                      0)
-
-    guard let pointer = mapped, pointer != MAP_FAILED else {
-        close(fd)
-        return nil
-    }
-
-    return (fd, pointer)
-}
-
-/// 关闭共享内存映射
-private func closeSharedMemory(fd: Int32, pointer: UnsafeMutableRawPointer) {
-    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
-    munmap(pointer, SharedMemoryLayout.size)
-    close(fd)
-}
-
-func setSpeed(pid: pid_t, ratio: Float) -> Int32 {
-    var clampedRatio = ratio
-    if clampedRatio < minSpeedRatio {
-        print("警告：速度倍率 \(ratio) 低于最小值 \(minSpeedRatio)，已截断")
-        clampedRatio = minSpeedRatio
-    } else if clampedRatio > maxSpeedRatio {
-        print("警告：速度倍率 \(ratio) 超过最大值 \(maxSpeedRatio)，已截断")
-        clampedRatio = maxSpeedRatio
-    }
-
-    guard let (fd, pointer) = openSharedMemory(pid: pid) else {
-        writeError("错误：找不到进程 \(pid) 的共享内存")
-        return 1
-    }
-
-    defer {
-        closeSharedMemory(fd: fd, pointer: pointer)
-    }
-
-    let magic = pointer.load(fromByteOffset: SharedMemoryLayout.offsetMagic, as: UInt32.self)
-    let version = pointer.load(fromByteOffset: SharedMemoryLayout.offsetVersion, as: UInt32.self)
-    if magic != SharedMemoryLayout.magicNumber {
-        let expected = String(format: "%08X", SharedMemoryLayout.magicNumber)
-        let actual = String(format: "%08X", magic)
-        writeError("错误：共享内存 magic 不匹配（期望 0x\(expected)，实际 0x\(actual)）")
-        return 1
-    }
-    if version < 2 {
-        writeError("错误：共享内存版本不兼容（\(version)），需要 >= 2")
-        return 1
-    }
-
-    pointer.storeBytes(of: clampedRatio,
-                       toByteOffset: SharedMemoryLayout.offsetSpeedRatio,
-                       as: Float32.self)
-    pointer.storeBytes(of: UInt8(1),
-                       toByteOffset: SharedMemoryLayout.offsetIsActive,
-                       as: UInt8.self)
-    let now = UInt64(Date().timeIntervalSince1970)
-    pointer.storeBytes(of: now,
-                       toByteOffset: SharedMemoryLayout.offsetTimestamp,
-                       as: UInt64.self)
-    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
-
-    print("已设置进程 \(pid) 的加速倍率为 \(clampedRatio)x（已启用）")
-    return 0
-}
-
-// MARK: - 退出清理
-
-func quitAndCleanup(pid: pid_t) -> Int32 {
-    let key = sharedMemoryKeyPrefix + String(pid)
-
-    guard let (fd, pointer) = openSharedMemory(pid: pid) else {
-        print("进程 \(pid) 的共享内存不存在或已清理")
-        return 0
-    }
-
-    defer {
-        closeSharedMemory(fd: fd, pointer: pointer)
-    }
-
-    let magic = pointer.load(fromByteOffset: SharedMemoryLayout.offsetMagic, as: UInt32.self)
-    if magic != SharedMemoryLayout.magicNumber {
-        let magicHex = String(format: "%08X", magic)
-        writeError("警告：共享内存 magic 不匹配（0x\(magicHex)），仍尝试清理")
-    }
-
-    pointer.storeBytes(of: defaultSpeedRatio,
-                       toByteOffset: SharedMemoryLayout.offsetSpeedRatio,
-                       as: Float32.self)
-    pointer.storeBytes(of: UInt8(0),
-                       toByteOffset: SharedMemoryLayout.offsetIsActive,
-                       as: UInt8.self)
-    let timestamp = UInt64(Date().timeIntervalSince1970)
-    pointer.storeBytes(of: timestamp,
-                       toByteOffset: SharedMemoryLayout.offsetTimestamp,
-                       as: UInt64.self)
-    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
-
-    let unlinkResult = key.withCString { cKey in
-        shm_unlink(cKey)
-    }
-
-    if unlinkResult == -1 && errno != ENOENT {
-        writeError("警告：shm_unlink 失败：\(String(cString: strerror(errno)))")
-    }
-
-    print("已清理进程 \(pid) 的共享内存（速度复位为 1.0x，加速已禁用）")
-    return 0
 }
