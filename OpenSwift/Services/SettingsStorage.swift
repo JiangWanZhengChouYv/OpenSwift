@@ -193,48 +193,58 @@ class SettingsStorage {
     }
 
     func importAllSettings(_ settings: [String: Any]) {
-        if let value = settings[SettingsKeys.launchAtLogin] as? Bool {
-            save(value, forKey: SettingsKeys.launchAtLogin)
-        }
-        if let value = settings[SettingsKeys.showInMenuBar] as? Bool {
-            save(value, forKey: SettingsKeys.showInMenuBar)
-        }
-        if let value = settings[SettingsKeys.minimizeToTray] as? Bool {
-            save(value, forKey: SettingsKeys.minimizeToTray)
-        }
-
-        if let value = settings[SettingsKeys.showProcessIcons] as? Bool {
-            save(value, forKey: SettingsKeys.showProcessIcons)
-        }
-        if let value = settings[SettingsKeys.autoRefreshProcessList] as? Bool {
-            save(value, forKey: SettingsKeys.autoRefreshProcessList)
-        }
-        if let value = settings[SettingsKeys.refreshInterval] as? Double {
-            save(value, forKey: SettingsKeys.refreshInterval)
-        }
-
-        if let value = settings[SettingsKeys.lastUsedSpeed] as? Double {
-            save(value, forKey: SettingsKeys.lastUsedSpeed)
-        }
-        if let value = settings[SettingsKeys.rememberSpeedPerProcess] as? Bool {
-            save(value, forKey: SettingsKeys.rememberSpeedPerProcess)
-        }
-
-        if let value = settings[SettingsKeys.hotkeyEnabled] as? Bool {
-            save(value, forKey: SettingsKeys.hotkeyEnabled)
-        }
-        if let value = settings[SettingsKeys.showSpeedNotifications] as? Bool {
-            save(value, forKey: SettingsKeys.showSpeedNotifications)
-        }
-
-        if let value = settings[SettingsKeys.maxHistoryCount] as? Int {
-            save(value, forKey: SettingsKeys.maxHistoryCount)
-        }
-        if let value = settings[SettingsKeys.autoCleanupInactive] as? Bool {
-            save(value, forKey: SettingsKeys.autoCleanupInactive)
-        }
+        importLaunchSettings(settings)
+        importProcessListSettings(settings)
+        importSpeedSettings(settings)
+        importHotkeySettings(settings)
+        importHistorySettings(settings)
 
         saveAll()
         logInfo("Settings imported successfully", log: .settings)
+    }
+    
+    private func importLaunchSettings(_ settings: [String: Any]) {
+        importBoolIfPresent(settings, key: SettingsKeys.launchAtLogin)
+        importBoolIfPresent(settings, key: SettingsKeys.showInMenuBar)
+        importBoolIfPresent(settings, key: SettingsKeys.minimizeToTray)
+    }
+    
+    private func importProcessListSettings(_ settings: [String: Any]) {
+        importBoolIfPresent(settings, key: SettingsKeys.showProcessIcons)
+        importBoolIfPresent(settings, key: SettingsKeys.autoRefreshProcessList)
+        importDoubleIfPresent(settings, key: SettingsKeys.refreshInterval)
+    }
+    
+    private func importSpeedSettings(_ settings: [String: Any]) {
+        importDoubleIfPresent(settings, key: SettingsKeys.lastUsedSpeed)
+        importBoolIfPresent(settings, key: SettingsKeys.rememberSpeedPerProcess)
+    }
+    
+    private func importHotkeySettings(_ settings: [String: Any]) {
+        importBoolIfPresent(settings, key: SettingsKeys.hotkeyEnabled)
+        importBoolIfPresent(settings, key: SettingsKeys.showSpeedNotifications)
+    }
+    
+    private func importHistorySettings(_ settings: [String: Any]) {
+        importIntIfPresent(settings, key: SettingsKeys.maxHistoryCount)
+        importBoolIfPresent(settings, key: SettingsKeys.autoCleanupInactive)
+    }
+    
+    private func importBoolIfPresent(_ settings: [String: Any], key: String) {
+        if let value = settings[key] as? Bool {
+            save(value, forKey: key)
+        }
+    }
+    
+    private func importDoubleIfPresent(_ settings: [String: Any], key: String) {
+        if let value = settings[key] as? Double {
+            save(value, forKey: key)
+        }
+    }
+    
+    private func importIntIfPresent(_ settings: [String: Any], key: String) {
+        if let value = settings[key] as? Int {
+            save(value, forKey: key)
+        }
     }
 }

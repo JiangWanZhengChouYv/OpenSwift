@@ -224,3 +224,35 @@ struct ProcessHistoryData: Codable {
         )
     }
 }
+
+struct ProcessGroupData: Codable {
+    let id: UUID
+    let name: String
+    let createdAt: Date
+    let isPreset: Bool
+    let processes: [ProcessHistoryData]
+    
+    init(from group: ProcessGroup) {
+        self.id = group.id
+        self.name = group.name
+        self.createdAt = group.createdAt
+        self.isPreset = group.isPreset
+        self.processes = group.processes.map { ProcessHistoryData(from: $0) }
+    }
+    
+    func toProcessGroup() -> ProcessGroup {
+        var group = ProcessGroup(
+            id: id,
+            name: name,
+            createdAt: createdAt,
+            isPreset: isPreset
+        )
+        
+        for processData in processes {
+            let process = processData.toInjectedProcess()
+            group.addProcess(process)
+        }
+        
+        return group
+    }
+}

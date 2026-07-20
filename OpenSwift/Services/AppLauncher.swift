@@ -283,7 +283,9 @@ class AppLauncher {
         return launchQueue.sync {
             logDebug("Terminating process: \(process.appName) (PID: \(process.pid))", log: .launcher)
 
-            guard let runningApp = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == process.pid }) else {
+            guard let runningApp = NSWorkspace.shared.runningApplications.first(
+                where: { $0.processIdentifier == process.pid }
+            ) else {
                 logError("Process not running: \(process.pid)", log: .launcher)
                 updateProcessStatus(pid: process.pid, isRunning: false)
                 return .failure(.processNotFound)
@@ -301,7 +303,9 @@ class AppLauncher {
         return launchQueue.sync {
             logDebug("Force terminating process: \(process.appName) (PID: \(process.pid))", log: .launcher)
 
-            guard let runningApp = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == process.pid }) else {
+            guard let runningApp = NSWorkspace.shared.runningApplications.first(
+                where: { $0.processIdentifier == process.pid }
+            ) else {
                 logError("Process not running: \(process.pid)", log: .launcher)
                 updateProcessStatus(pid: process.pid, isRunning: false)
                 return .failure(.processNotFound)

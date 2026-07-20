@@ -42,7 +42,8 @@ struct SpeedSliderView: View {
                                     
                                     let newProgress = value.location.x / geometry.size.width
                                     let clampedProgress = min(max(newProgress, 0), 1)
-                                    let newSpeed = range.lowerBound + clampedProgress * (range.upperBound - range.lowerBound)
+                                    let rangeSpan = range.upperBound - range.lowerBound
+                                    let newSpeed = range.lowerBound + clampedProgress * rangeSpan
                                     
                                     speed = snapToNearestTick(newSpeed)
                                 }

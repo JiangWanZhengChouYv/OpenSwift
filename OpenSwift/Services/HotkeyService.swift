@@ -93,7 +93,9 @@ class HotkeyService: ObservableObject {
                 hotkeyManager?.updateConfigurations(configurations.filter { $0.isEnabled })
             }
             
-            logDebug("\(isEnabled ? "Enabled" : "Disabled") hotkey: \(configurations[index].action.displayName)", log: .hotkey)
+            let actionName = configurations[index].action.displayName
+            let status = isEnabled ? "Enabled" : "Disabled"
+            logDebug("\(status) hotkey: \(actionName)", log: .hotkey)
         }
     }
     
@@ -167,7 +169,11 @@ class HotkeyService: ObservableObject {
                 logDebug("Quick slow to 0.5", log: .hotkey)
             }
             
-            self.showNotification(for: action, speed: speedControlState.currentSpeed, isEnabled: speedControlState.isEnabled)
+            self.showNotification(
+                for: action,
+                speed: speedControlState.currentSpeed,
+                isEnabled: speedControlState.isEnabled
+            )
         }
     }
     

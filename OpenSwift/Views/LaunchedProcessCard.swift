@@ -37,10 +37,7 @@ struct LaunchedProcessCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    isSelected ? Color.accentColor.opacity(0.5) : (isHovering ? Color.accentColor.opacity(0.3) : Color.clear),
-                    lineWidth: isSelected ? 2 : 1
-                )
+                .stroke(borderColor, lineWidth: borderWidth)
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -212,6 +209,17 @@ struct LaunchedProcessCard: View {
             return Color.gray
         }
         return Color(hex: "34C759")
+    }
+    
+    private var borderColor: Color {
+        if isSelected {
+            return Color.accentColor.opacity(0.5)
+        }
+        return isHovering ? Color.accentColor.opacity(0.3) : Color.clear
+    }
+    
+    private var borderWidth: CGFloat {
+        return isSelected ? 2 : 1
     }
     
     private var detailsSection: some View {

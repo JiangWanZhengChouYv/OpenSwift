@@ -246,77 +246,80 @@ struct ProcessRowViewWithContextMenu: View {
     }
     
     private func restartAppWithDYLD() {
-        // 步骤 1: 先终止当前进程（如果还在运行）
-        if let runningApp = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == process.pid }) {
+        if let runningApp = NSWorkspace.shared.runningApplications.first(
+            where: { $0.processIdentifier == process.pid }
+        ) {
             runningApp.terminate()
         }
         
-        // 步骤 2: 找到应用路径并重新启动
-        var targetURL: URL?
-        var launchAsExecutable = false
+        let (targetURL, launchAsExecutable) = findAppPath()
         
-        // 策略 A: 通过 bundle identifier 查找 .app 包（最可靠）
-        if let bundleId = process.bundleIdentifier,
-           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
-            targetURL = url
-        }
-        // 策略 B: 从可执行文件路径向上查找 .app 包
-        else if let path = process.path {
-            let executableURL = URL(fileURLWithPath: path)
-            
-            var searchURL = executableURL
-            var foundAppBundle = false
-            
-            while !searchURL.pathComponents.isEmpty {
-                if searchURL.pathExtension == "app" {
-                    targetURL = searchURL
-                    foundAppBundle = true
-                    break
-                }
-                // 检查是否包含 .app 目录（如 "MyApp.app"）
-                if searchURL.lastPathComponent.contains(".app") {
-                    targetURL = searchURL
-                    foundAppBundle = true
-                    break
-                }
-                
-                // 到达根目录则停止
-                if searchURL.path == "/" || searchURL.pathComponents.count <= 1 {
-                    break
-                }
-                searchURL = searchURL.deletingLastPathComponent()
-            }
-            
-            // 策略 C: 找不到 .app 包，直接使用可执行文件路径
-            if !foundAppBundle {
-                targetURL = executableURL
-                launchAsExecutable = true
-            }
-        }
-        
-        // 步骤 3: 启动应用
         if let url = targetURL {
-            // 等待原进程完全终止（给系统一点时间清理）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 if launchAsExecutable {
-                    appLauncherViewModel.launchExecutable(at: url)
+                    self.appLauncherViewModel.launchExecutable(at: url)
                 } else {
-                    appLauncherViewModel.launchApp(at: url)
+                    self.appLauncherViewModel.launchApp(at: url)
                 }
             }
         } else {
-            // 无法找到应用路径，显示详细错误
-            DispatchQueue.main.async {
-                let missingInfo = [
-                    process.bundleIdentifier != nil ? "bundleId: \(process.bundleIdentifier!)" : nil,
-                    process.path != nil ? "path: \(process.path!)" : nil,
-                    "name: \(process.name)",
-                    "pid: \(process.pid)"
-                ].compactMap { $0 }.joined(separator: ", ")
-                
-                appLauncherViewModel.errorMessage = "无法找到应用 \(process.name) 的启动路径（\(missingInfo)）。请通过主界面的应用选择器重新启动。"
-                appLauncherViewModel.showError = true
+            showPathNotFoundError()
+        }
+    }
+    
+    private func findAppPath() -> (URL?, Bool) {
+        if let bundleId = process.bundleIdentifier,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            return (url, false)
+        }
+        
+        guard let path = process.path else {
+            return (nil, false)
+        }
+        
+        let executableURL = URL(fileURLWithPath: path)
+        if let appURL = findAppBundle(from: executableURL) {
+            return (appURL, false)
+        }
+        
+        return (executableURL, true)
+    }
+    
+    private func findAppBundle(from executableURL: URL) -> URL? {
+        var searchURL = executableURL
+        
+        while !searchURL.pathComponents.isEmpty {
+            if searchURL.pathExtension == "app" {
+                return searchURL
             }
+            
+            if searchURL.lastPathComponent.contains(".app") {
+                return searchURL
+            }
+            
+            if searchURL.path == "/" || searchURL.pathComponents.count <= 1 {
+                break
+            }
+            
+            searchURL = searchURL.deletingLastPathComponent()
+        }
+        
+        return nil
+    }
+    
+    private func showPathNotFoundError() {
+        DispatchQueue.main.async {
+            let missingInfo = [
+                self.process.bundleIdentifier != nil ? "bundleId: \(self.process.bundleIdentifier!)" : nil,
+                self.process.path != nil ? "path: \(self.process.path!)" : nil,
+                "name: \(self.process.name)",
+                "pid: \(self.process.pid)"
+            ].compactMap { $0 }.joined(separator: ", ")
+            
+            let message = "无法找到应用 \(self.process.name) 的启动路径（\(missingInfo)）。" +
+                "请通过主界面的应用选择器重新启动。"
+            self.appLauncherViewModel.errorMessage = message
+            self.appLauncherViewModel.showError = true
         }
     }
 }

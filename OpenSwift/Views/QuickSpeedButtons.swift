@@ -32,12 +32,9 @@ struct QuickSpeedButtons: View {
                             .frame(minWidth: 50, minHeight: 32)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(isEnabled ? (isSelected(preset.speed) ? selectedColor(for: preset.speed) : Color(NSColor.controlBackgroundColor)) : Color(NSColor.controlBackgroundColor).opacity(0.3))
-                            )
-                            .foregroundColor(isEnabled ? (isSelected(preset.speed) ? .white : .primary) : Color.secondary.opacity(0.5))
-                            .shadow(color: isEnabled && isSelected(preset.speed) ? selectedColor(for: preset.speed).opacity(0.4) : Color.clear, radius: 2, x: 0, y: 1)
+                            .background(buttonBackground(for: preset))
+                            .foregroundColor(buttonForegroundColor(for: preset))
+                            .shadow(color: buttonShadowColor(for: preset), radius: 2, x: 0, y: 1)
                     }
                     .buttonStyle(.plain)
                     .scaleEffect(isEnabled && isSelected(preset.speed) ? 1.05 : 1.0)
@@ -61,6 +58,27 @@ struct QuickSpeedButtons: View {
         } else {
             return Color(hex: "34C759")
         }
+    }
+    
+    private func buttonBackground(for preset: (speed: Double, label: String)) -> Color {
+        if !isEnabled {
+            return Color(NSColor.controlBackgroundColor).opacity(0.3)
+        }
+        return isSelected(preset.speed) ? selectedColor(for: preset.speed) : Color(NSColor.controlBackgroundColor)
+    }
+    
+    private func buttonForegroundColor(for preset: (speed: Double, label: String)) -> Color {
+        if !isEnabled {
+            return Color.secondary.opacity(0.5)
+        }
+        return isSelected(preset.speed) ? .white : .primary
+    }
+    
+    private func buttonShadowColor(for preset: (speed: Double, label: String)) -> Color {
+        guard isEnabled && isSelected(preset.speed) else {
+            return Color.clear
+        }
+        return selectedColor(for: preset.speed).opacity(0.4)
     }
     
     private func provideHapticFeedback() {

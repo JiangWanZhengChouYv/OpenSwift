@@ -126,7 +126,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "设置...", action: #selector(showSettings), keyEquivalent: ",")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "隐藏 OpenSwift", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        appMenu.addItem(withTitle: "隐藏其他应用", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "隐藏其他应用", 
+                        action: #selector(NSApplication.hideOtherApplications(_:)), 
+                        keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "退出 OpenSwift", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         
@@ -179,7 +181,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showAbout() {
         let alert = NSAlert()
         alert.messageText = "关于 OpenSwift"
-        alert.informativeText = "OpenSwift v1.0\n\n一个强大的进程速度控制工具。\n\n功能特点：\n• 多进程独立变速\n• 实时速度控制\n• 进程组管理\n• 共享内存通信\n• 全局快捷键支持\n• 菜单栏集成"
+        alert.informativeText = """
+            OpenSwift v1.0
+
+            一个强大的进程速度控制工具。
+
+            功能特点：
+            • 多进程独立变速
+            • 实时速度控制
+            • 进程组管理
+            • 共享内存通信
+            • 全局快捷键支持
+            • 菜单栏集成
+            """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "确定")
         alert.runModal()

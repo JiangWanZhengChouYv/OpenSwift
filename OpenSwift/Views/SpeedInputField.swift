@@ -22,10 +22,7 @@ struct SpeedInputField: View {
                     .frame(width: 80)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(isEnabled ? (isEditing ? Color(NSColor.controlBackgroundColor) : Color(NSColor.textBackgroundColor)) : Color(NSColor.controlBackgroundColor).opacity(0.3))
-                    )
+                    .background(textFieldBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.accentColor, lineWidth: isEnabled && isEditing ? 2 : 0)
@@ -40,7 +37,9 @@ struct SpeedInputField: View {
                         guard isEnabled else { return }
                         validateAndUpdateSpeed(newValue)
                     }
-                    .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SpeedInputSubmit"))) { _ in
+                    .onReceive(NotificationCenter.default.publisher(
+                        for: NSNotification.Name("SpeedInputSubmit")
+                    )) { _ in
                         guard isEnabled else { return }
                         commitInput()
                     }
@@ -61,6 +60,13 @@ struct SpeedInputField: View {
             }
         }
         .opacity(isEnabled ? 1.0 : 0.5)
+    }
+    
+    private var textFieldBackground: Color {
+        if !isEnabled {
+            return Color(NSColor.controlBackgroundColor).opacity(0.3)
+        }
+        return isEditing ? Color(NSColor.controlBackgroundColor) : Color(NSColor.textBackgroundColor)
     }
     
     private var incrementButtons: some View {

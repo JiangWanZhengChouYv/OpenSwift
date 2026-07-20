@@ -110,13 +110,15 @@ struct HotkeyConfig: Codable, Identifiable, Equatable {
     }
 
     static func defaultConfigurations() -> [HotkeyConfig] {
+        let cmdOpt = UInt32(NSEvent.ModifierFlags.command.rawValue |
+                           NSEvent.ModifierFlags.option.rawValue)
         return [
-            HotkeyConfig(action: .increaseSpeed, keyCode: 126, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: true),
-            HotkeyConfig(action: .decreaseSpeed, keyCode: 125, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: true),
-            HotkeyConfig(action: .toggleSpeed, keyCode: 49, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: true),
-            HotkeyConfig(action: .resetSpeed, keyCode: 15, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: true),
-            HotkeyConfig(action: .quickBoost, keyCode: 11, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: false),
-            HotkeyConfig(action: .quickSlow, keyCode: 1, modifiers: UInt32(NSEvent.ModifierFlags.command.rawValue | NSEvent.ModifierFlags.option.rawValue), isEnabled: false)
+            HotkeyConfig(action: .increaseSpeed, keyCode: 126, modifiers: cmdOpt, isEnabled: true),
+            HotkeyConfig(action: .decreaseSpeed, keyCode: 125, modifiers: cmdOpt, isEnabled: true),
+            HotkeyConfig(action: .toggleSpeed, keyCode: 49, modifiers: cmdOpt, isEnabled: true),
+            HotkeyConfig(action: .resetSpeed, keyCode: 15, modifiers: cmdOpt, isEnabled: true),
+            HotkeyConfig(action: .quickBoost, keyCode: 11, modifiers: cmdOpt, isEnabled: false),
+            HotkeyConfig(action: .quickSlow, keyCode: 1, modifiers: cmdOpt, isEnabled: false)
         ]
     }
 

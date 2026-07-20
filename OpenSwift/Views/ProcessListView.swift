@@ -243,3 +243,137 @@ struct ProcessListView_Previews: PreviewProvider {
         .frame(width: 300, height: 500)
     }
 }
+
+// MARK: - Group Management Views
+struct GroupManagerView: View {
+    @ObservedObject var processManager: ProcessManager
+    @State private var newGroupName: String = ""
+    @State private var showNewGroupDialog: Bool = false
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("进程组管理")
+                    .font(.system(size: 18, weight: .bold))
+                
+                Spacer()
+                
+                Button(action: {
+                    showNewGroupDialog = true
+                }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 20))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            
+            Divider()
+            
+            if processManager.processGroups.isEmpty {
+                emptyGroupsView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(processManager.processGroups) { group in
+                            GroupCard(
+                                group: group,
+                                onApply: {
+                                    processManager.applyGroup(group)
+                                },
+                                onDelete: {
+                                    processManager.deleteGroup(group)
+                                }
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+            
+            Spacer()
+        }
+        .frame(width: 500, height: 400)
+        .alert(isPresented: $showNewGroupDialog) {
+            Alert(
+                title: Text("创建新进程组"),
+                message: Text("输入新进程组的名称"),
+                primaryButton: .default(Text("创建")) {
+                    if !newGroupName.isEmpty {
+                        _ = processManager.createGroup(
+                            name: newGroupName,
+                            processes: processManager.injectedProcesses
+                        )
+                        newGroupName = ""
+                    }
+                },
+                secondaryButton: .cancel() {
+                    newGroupName = ""
+                }
+            )
+        }
+    }
+    
+    private var emptyGroupsView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            
+            Text("暂无进程组")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.secondary)
+            
+            Text("点击 + 按钮创建新的进程组")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct GroupCard: View {
+    let group: ProcessGroup
+    let onApply: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 24))
+                .foregroundColor(.accentColor)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(group.name)
+                    .font(.system(size: 14, weight: .semibold))
+                
+                Text("\(group.processCount) 个进程")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: onApply) {
+                Text("应用")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
+            .disabled(group.processCount == 0)
+            
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 14))
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+    }
+}
