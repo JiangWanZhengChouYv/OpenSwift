@@ -87,3 +87,20 @@ targets:
         DEVELOPMENT_TEAM: ""
         SWIFT_VERSION: "5.0"
         SWIFT_FORCE_STATIC_STDLIBS: YES
+
+  TimerTestApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: TimerTestApp
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openswift.timertest
+        PRODUCT_NAME: TimerTestApp
+        INFOPLIST_FILE: TimerTestApp/Info.plist
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        MACOSX_DEPLOYMENT_TARGET: "12.0"

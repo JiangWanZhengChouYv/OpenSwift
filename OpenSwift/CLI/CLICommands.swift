@@ -73,6 +73,20 @@ func findDylibPath() -> String? {
         return path6
     }
 
+    // 常见安装路径
+    let commonPaths = [
+        "/Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch",
+        (NSHomeDirectory() as NSString)
+            .appendingPathComponent(
+                "Applications/OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch"
+            )
+    ]
+    for path in commonPaths {
+        if fileManager.fileExists(atPath: path) {
+            return path
+        }
+    }
+
     return nil
 }
 
