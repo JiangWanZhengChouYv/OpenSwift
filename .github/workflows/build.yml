@@ -30,7 +30,7 @@ jobs:
             build \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO | tail -20
+            CODE_SIGN_ALLOWED=NO
 
       - name: Build SpeedPatch
         run: |
@@ -42,7 +42,7 @@ jobs:
             build \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO | tail -20
+            CODE_SIGN_ALLOWED=NO
 
       - name: Build openswift-cli
         run: |
@@ -54,4 +54,4 @@ jobs:
             build \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO | tail -20
+            CODE_SIGNING_ALLOWED=NO
