@@ -2,7 +2,51 @@ import Foundation
 import AppKit
 
 /// CLI 命令实现
-/// 实现 dylib 路径定位、DYLD 启动/重启、进程查找与终止、智能模式等核心逻辑
+/// 实现 dylib 路径定位、DYLD 启动/重启、进程查找与终止、智能模式、速度控制、退出清理等核心逻辑
+
+// MARK: - 共享内存布局常量
+
+/// 共享内存布局（与 SpeedPatch/speedpatch.h 和 OpenSwift/Services/SpeedControlManager.swift 完全一致）
+///
+/// 布局:
+///   Offset 0-3:   magic (uint32_t, 4 bytes)              - 魔术数字 0x5350444D
+///   Offset 4-7:   version (uint32_t, 4 bytes)            - 协议版本
+///   Offset 8-11:  owner_pid (uint32_t, 4 bytes)          - 创建者 PID
+///   Offset 12-15: speed_ratio (float, 4 bytes)           - 速度倍率
+///   Offset 16:    is_active (uint8_t, 1 byte)            - 是否启用
+///   Offset 17-23: padding (7 bytes)                      - 对齐填充
+///   Offset 24-31: timestamp (uint64_t, 8 bytes)          - 最后修改时间戳
+///   Offset 32-71: reserved (40 bytes)                    - 预留
+///   总大小: 72 bytes; 共享内存大小: 4096 bytes
+enum SharedMemoryLayout {
+    static let size = 4096
+    static let offsetMagic = 0
+    static let offsetVersion = 4
+    static let offsetOwnerPID = 8
+    static let offsetSpeedRatio = 12
+    static let offsetIsActive = 16
+    static let offsetTimestamp = 24
+    static let magicNumber: UInt32 = 0x5350444D
+    static let currentVersion: UInt32 = 2
+}
+
+/// 共享内存 key 前缀
+let sharedMemoryKeyPrefix = "com.openswift.speedpatch."
+
+/// 速度倍率范围
+let minSpeedRatio: Float = 0.1
+let maxSpeedRatio: Float = 10.0
+let defaultSpeedRatio: Float = 1.0
+
+// MARK: - POSIX shm 变参函数声明
+
+// shm_open/shm_unlink 在 POSIX 中被声明为变参函数，Swift 标记为 unavailable。
+// 通过 @_silgen_name 重新声明为非变参形式，使 Swift 可以正确链接。
+@_silgen_name("shm_open")
+func shm_open(_ name: UnsafePointer<CChar>!, _ oflag: Int32, _ mode: mode_t) -> Int32
+
+@_silgen_name("shm_unlink")
+func shm_unlink(_ name: UnsafePointer<CChar>!) -> Int32
 
 // MARK: - Dylib 路径定位
 
@@ -309,4 +353,149 @@ func smartMode(at path: String) -> Int32 {
         // 3. 如果没找到，调用 launchWithDYLD
         return launchWithDYLD(at: path)
     }
+}
+
+// MARK: - 速度控制
+
+/// 打开目标 PID 的共享内存（已存在的，不创建）
+///
+/// - Parameter pid: 目标进程 PID
+/// - Returns: (fd, pointer)，失败返回 nil
+private func openSharedMemory(pid: pid_t) -> (fd: Int32, pointer: UnsafeMutableRawPointer)? {
+    let key = sharedMemoryKeyPrefix + String(pid)
+
+    // O_RDWR 打开已存在的共享内存（不创建）
+    let fd = key.withCString { cKey in
+        shm_open(cKey, O_RDWR, 0)
+    }
+
+    if fd == -1 {
+        return nil
+    }
+
+    // 映射共享内存（mmap 返回 UnsafeMutableRawPointer?，MAP_FAILED 是非 nil 失败标记）
+    let mapped = mmap(nil,
+                      SharedMemoryLayout.size,
+                      PROT_READ | PROT_WRITE,
+                      MAP_SHARED,
+                      fd,
+                      0)
+
+    guard let pointer = mapped, pointer != MAP_FAILED else {
+        close(fd)
+        return nil
+    }
+
+    return (fd, pointer)
+}
+
+/// 关闭共享内存映射
+private func closeSharedMemory(fd: Int32, pointer: UnsafeMutableRawPointer) {
+    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
+    munmap(pointer, SharedMemoryLayout.size)
+    close(fd)
+}
+
+/// 设置目标进程的加速倍率
+///
+/// 通过共享内存向目标进程写入 speed_ratio 和 is_active=1
+///
+/// - Parameters:
+///   - pid: 目标进程 PID
+///   - ratio: 速度倍率（自动截断到 [0.1, 10.0]）
+/// - Returns: 状态码（0 成功，1 失败）
+func setSpeed(pid: pid_t, ratio: Float) -> Int32 {
+    // 1. 截断速度倍率到合法范围
+    var clampedRatio = ratio
+    if clampedRatio < minSpeedRatio {
+        print("警告：速度倍率 \(ratio) 低于最小值 \(minSpeedRatio)，已截断")
+        clampedRatio = minSpeedRatio
+    } else if clampedRatio > maxSpeedRatio {
+        print("警告：速度倍率 \(ratio) 超过最大值 \(maxSpeedRatio)，已截断")
+        clampedRatio = maxSpeedRatio
+    }
+
+    // 2. 打开共享内存
+    guard let (fd, pointer) = openSharedMemory(pid: pid) else {
+        writeError("错误：找不到进程 \(pid) 的共享内存（进程可能未启动或未注入 SpeedPatch）")
+        return 1
+    }
+
+    defer {
+        closeSharedMemory(fd: fd, pointer: pointer)
+    }
+
+    // 3. 校验 magic 和 version
+    let magic = pointer.load(fromByteOffset: SharedMemoryLayout.offsetMagic, as: UInt32.self)
+    let version = pointer.load(fromByteOffset: SharedMemoryLayout.offsetVersion, as: UInt32.self)
+    if magic != SharedMemoryLayout.magicNumber {
+        writeError("错误：共享内存 magic 不匹配（期望 0x\(String(format: "%08X", SharedMemoryLayout.magicNumber))，实际 0x\(String(format: "%08X", magic))）")
+        return 1
+    }
+    if version < 2 {
+        writeError("错误：共享内存版本不兼容（\(version)），需要 >= 2")
+        return 1
+    }
+
+    // 4. 写入 speed_ratio 和 is_active=1
+    pointer.storeBytes(of: clampedRatio, toByteOffset: SharedMemoryLayout.offsetSpeedRatio, as: Float32.self)
+    pointer.storeBytes(of: UInt8(1), toByteOffset: SharedMemoryLayout.offsetIsActive, as: UInt8.self)
+    pointer.storeBytes(of: UInt64(Date().timeIntervalSince1970), toByteOffset: SharedMemoryLayout.offsetTimestamp, as: UInt64.self)
+
+    // 5. msync 确保写入对目标进程可见
+    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
+
+    print("已设置进程 \(pid) 的加速倍率为 \(clampedRatio)x（已启用）")
+    return 0
+}
+
+// MARK: - 退出清理
+
+/// 复位目标进程的速度并清理共享内存
+///
+/// 写入 is_active=0、speed_ratio=1.0，然后调用 shm_unlink 删除共享内存对象
+///
+/// - Parameter pid: 目标进程 PID
+/// - Returns: 状态码（始终返回 0，幂等）
+func quitAndCleanup(pid: pid_t) -> Int32 {
+    let key = sharedMemoryKeyPrefix + String(pid)
+
+    // 1. 尝试打开共享内存
+    guard let (fd, pointer) = openSharedMemory(pid: pid) else {
+        // 共享内存不存在，视为已清理（幂等）
+        print("进程 \(pid) 的共享内存不存在或已清理")
+        return 0
+    }
+
+    defer {
+        closeSharedMemory(fd: fd, pointer: pointer)
+    }
+
+    // 2. 校验 magic（避免误操作）
+    let magic = pointer.load(fromByteOffset: SharedMemoryLayout.offsetMagic, as: UInt32.self)
+    if magic != SharedMemoryLayout.magicNumber {
+        writeError("警告：共享内存 magic 不匹配（0x\(String(format: "%08X", magic))），仍尝试清理")
+    }
+
+    // 3. 写入 is_active=0 和 speed_ratio=1.0 复位
+    pointer.storeBytes(of: defaultSpeedRatio, toByteOffset: SharedMemoryLayout.offsetSpeedRatio, as: Float32.self)
+    pointer.storeBytes(of: UInt8(0), toByteOffset: SharedMemoryLayout.offsetIsActive, as: UInt8.self)
+    pointer.storeBytes(of: UInt64(Date().timeIntervalSince1970), toByteOffset: SharedMemoryLayout.offsetTimestamp, as: UInt64.self)
+
+    // 4. msync 确保写入对目标进程可见
+    msync(pointer, SharedMemoryLayout.size, MS_SYNC)
+
+    // 5. 调用 shm_unlink 删除共享内存对象
+    //    注意：shm_unlink 只删除名字，实际内存对象在有进程持有 fd 期间不会被释放
+    //    但后续的 shm_open 将无法再打开此名字
+    let unlinkResult = key.withCString { cKey in
+        shm_unlink(cKey)
+    }
+
+    if unlinkResult == -1 && errno != ENOENT {
+        writeError("警告：shm_unlink 失败：\(String(cString: strerror(errno)))")
+    }
+
+    print("已清理进程 \(pid) 的共享内存（速度复位为 1.0x，加速已禁用）")
+    return 0
 }

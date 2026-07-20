@@ -17,11 +17,18 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
       - name: Generate Xcode project
         run: xcodegen generate
 
       - name: Build OpenSwift
         run: |
+          set -o pipefail
           xcodebuild \
             -project OpenSwift.xcodeproj \
             -scheme OpenSwift \
@@ -33,6 +40,7 @@ jobs:
 
       - name: Build SpeedPatch
         run: |
+          set -o pipefail
           xcodebuild \
             -project OpenSwift.xcodeproj \
             -scheme SpeedPatch \
@@ -44,6 +52,7 @@ jobs:
 
       - name: Build openswift-cli
         run: |
+          set -o pipefail
           xcodebuild \
             -project OpenSwift.xcodeproj \
             -target openswift-cli \
