@@ -1,0 +1,42 @@
+disabled_rules:
+  - trailing_whitespace  # 行尾空格（不影响功能）
+  - line_length          # 行长度限制
+  - file_length          # 文件长度限制
+  - function_body_length # 函数体长度限制
+  - cyclomatic_complexity # 复杂度限制
+  - orphaned_doc_comment  # 孤立的文档注释
+  - type_body_length      # 类型体长度限制
+  - multiple_closures_with_trailing_closure # 多闭包尾随语法
+  - vertical_whitespace   # 垂直空白
+  - redundant_string_enum_value # 冗余字符串枚举值
+  - colon                 # 冒号格式
+  - for_where             # for-where 语法偏好
+  - implicit_optional_initialization # 隐式可选初始化
+  - empty_count           # count == 0 vs isEmpty
+  - empty_parentheses_with_trailing_closure # 空括号尾随闭包
+  - redundant_discardable_let # 冗余 discardable let
+  - unused_optional_binding # 未使用的可选绑定
+
+opt_in_rules:
+  - explicit_init
+  - first_where
+  - closure_spacing
+
+identifier_name:
+  min_length: 1
+  max_length: 60
+  excluded:
+    - a
+    - r
+    - g
+    - b
+    - fd
+    - id
+    - x
+    - y
+    - z
+
+type_name:
+  min_length: 2
+
+force_cast: warning
