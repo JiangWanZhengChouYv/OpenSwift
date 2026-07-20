@@ -34,22 +34,9 @@ struct SettingsView: View {
     private var sidebarView: some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(SettingsTab.allCases) { tab in
-                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tab } }) {
-                    HStack(spacing: 10) {
-                        Image(systemName: tab.iconName)
-                            .font(.system(size: 14))
-                            .frame(width: 20)
-                        Text(tab.title).font(.system(size: 13))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(selectedTab == tab ? .accentColor.opacity(0.15) : .clear)
-                    )
-                    .foregroundColor(selectedTab == tab ? .accentColor : .primary)
-                }.buttonStyle(.plain)
+                SidebarButton(tab: tab, isSelected: selectedTab == tab, action: {
+                    withAnimation(.easeInOut(duration: 0.2)) { selectedTab = tab }
+                })
             }
             Spacer()
         }
@@ -379,5 +366,32 @@ private func settingsSection<Content: View>(title: String, @ViewBuilder content:
         content()
             .padding()
             .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+    }
+}
+
+private struct SidebarButton: View {
+    let tab: SettingsTab
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: tab.iconName)
+                    .font(.system(size: 14))
+                    .frame(width: 20)
+                Text(tab.title)
+                    .font(.system(size: 13))
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            )
+            .foregroundColor(isSelected ? .accentColor : .primary)
+        }
+        .buttonStyle(.plain)
     }
 }
