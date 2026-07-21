@@ -2,14 +2,14 @@ name: OpenSwift
 options:
   bundleIdPrefix: com.openswift
   deploymentTarget:
-    macOS: "12.0"
+    macOS: "13.0"
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
 
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MACOSX_DEPLOYMENT_TARGET: "12.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
@@ -81,7 +81,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openswift.cli
         PRODUCT_NAME: openswift
-        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
@@ -103,4 +103,4 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
-        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"

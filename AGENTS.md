@@ -68,7 +68,7 @@ xcodebuild -project OpenSwift.xcodeproj -scheme OpenSwift clean
 cd TestApp && bash build.sh
 ```
 
-- 部署目标：macOS 12.0
+- 部署目标：macOS 13.0
 - SpeedPatch 是 dylib bundle target，作为 OpenSwift 依赖自动编译
 - dylib 实际路径：`OpenSwift.app/Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch`
 - CI：GitHub Actions（.github/workflows/build.yml）自动编译检查
@@ -263,7 +263,7 @@ openswift -r /Applications/MyApp.app
 OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的 bin 目录。
 
 - **实现文件**：`OpenSwift/Services/CLIManager.swift`
-- **调用时机**：`AppDelegate.finishInitialization()` 中调用 `CLIManager.shared.setup()`
+- **调用时机**：`AppState.setup()` 中调用 `CLIManager.shared.setup()`
 - **执行方式**：后台队列异步执行（不阻塞主线程）
 - **内部 CLI 路径**：`OpenSwift.app/Contents/SharedSupport/openswift`
   - 注意：不能放在 `Contents/MacOS/` 下，因为 macOS 文件系统大小写不敏感，`openswift` 会和主程序 `OpenSwift` 冲突
@@ -282,7 +282,10 @@ OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的
 - SpeedPatch 创建共享内存；OpenSwift 只连接已存在的共享内存
 - 跨进程同步使用原子读写，禁止使用 os_unfair_lock
 - 单例初始化使用 '轻量 init + setup 方法' 模式，setup() 在窗口创建后调用
-- 应用入口点 (main.swift) 优先创建窗口再初始化服务
+- 应用入口点使用纯 SwiftUI `App` 协议（`@main` + `Window` 场景），不再使用 AppKit `NSApplicationDelegate`
+- 菜单栏使用 SwiftUI `MenuBarExtra`（macOS 13+），不再使用 `NSStatusBar`
+- 菜单系统使用 SwiftUI `Commands` 和 `CommandMenu`，不再使用 `NSMenu`
+- 应用退出使用 `CommandGroup(replacing: .appTermination)` 处理清理，不再依赖 `applicationWillTerminate`
 - Swift 调用 POSIX 变参函数需使用 `@_silgen_name` 声明
 - 菜单栏仅显示主界面
 - .trae/、AGENTS.md、临时/、*.xcodeproj 一律加入 .gitignore
@@ -306,3 +309,16 @@ OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的
 - **退出崩溃修复 v4 (2026-07-21)**：应用退出时仍然崩溃。根因：`ContentView` 中使用 `@StateObject` 持有全局单例（`SpeedControlState.shared`、`HotkeyService.shared`、`AppSettings.shared`、`AppLauncherViewModel.shared`），SwiftUI 的生命周期管理与手动管理冲突，导致引用计数混乱；`onAppear` 中添加的 `OpenAppSelector` 通知观察器未在 `onDisappear` 中移除。修复：移除 `@StateObject` 对单例的持有，改为直接通过 `.shared` 访问；添加 `onDisappear` 正确移除通知观察器；使用 `NSObjectProtocol` 保存观察器引用。验证：连续 5 次退出测试无崩溃，速度控制 2x 加速正常。
 - **退出崩溃修复 v5 (2026-07-21)**：应用无法正常退出，`applicationWillTerminate` 完整执行后进程仍在运行（卡在 RunLoop 等待事件），用户看到"意外退出"。根因：`HotkeyService` 使用 `NSEvent.addGlobalMonitorForEvents` 注册的全局事件监听器在退出时未被清理，该监听器在 RunLoop 中注册事件源，保持 RunLoop 活跃，阻止应用正常退出。之前的测试用 `kill` 发送 SIGTERM 直接终止进程，绕过了 AppKit 退出流程，所以未能发现此问题。修复：在 `applicationWillTerminate` 的 UI 清理步骤中添加 `HotkeyService.shared.unregisterHotkeys()` 调用，确保全局事件监听器在退出前被移除。验证：连续 5 次正常退出测试均在 1 秒内完成，无崩溃日志，速度控制 2x 加速正常。
 - **退出崩溃修复 v6 (2026-07-21)**：应用退出时仍然崩溃，崩溃发生在 `objc_release`，线程栈显示 `_AXXMIGPerformAction`（辅助功能 API），`voucherInfos` 显示 `originatorName: System Events`。根因：当用户点击关闭按钮时，`NSEvent.addGlobalMonitorForEvents` 注册的全局事件监听器依赖辅助功能权限，虽然调用了 `unregisterHotkeys()`，但辅助功能系统（System Events）仍然可能有未完成的回调，这些回调持有对已释放对象的引用，导致 `objc_release` 访问无效内存。修复：调整 `applicationWillTerminate` 中清理顺序，将 `HotkeyService.shared.unregisterHotkeys()` 移到最先执行，确保全局快捷键监听器在其他资源清理前被移除，避免辅助功能系统回调已释放对象。验证：连续 5 次正常退出测试均通过，无崩溃日志，速度控制 2x 加速正常。
+- **整体重构 (2026-07-21)**：对整个项目进行架构重构，包括：
+  - **生命周期管理**：为所有服务类（ProcessManager、SpeedControlManager、HotkeyService、AppLauncher、MenuBarController 等）添加显式 `shutdown()` 方法，将清理逻辑从 `deinit` 迁移到 `shutdown()`，在 `applicationWillTerminate` 中按正确顺序调用
+  - **线程安全**：为 ProcessManager 添加 `stateQueue` DispatchQueue，串行化所有共享状态访问（injectedProcesses、processGroups、speedControllers 等），防止数据竞争
+  - **模块化**：将 ProcessManager 的右键菜单功能拆分到 `ProcessManager+ContextMenu.swift` 扩展文件，降低主文件复杂度
+  - **代码质量**：修复所有 SwiftLint 违规，确保代码符合项目规范
+  - **验证**：编译通过，GitHub Actions Build 和 SwiftLint 均成功，功能完整性保持不变
+- **SwiftUI 迁移 (2026-07-21)**：将应用从混合架构（SwiftUI + AppKit）迁移到纯 SwiftUI：
+  - **部署目标提升**：从 macOS 12.0 提升到 macOS 13.0，以支持 `MenuBarExtra` 等 SwiftUI macOS 13 特性
+  - **应用入口重写**：删除 `OpenSwift/App/main.swift` 和 `AppDelegate`，使用纯 SwiftUI `@main` + `App` 协议 + `Window` 场景管理主窗口
+  - **菜单栏重写**：删除 `MenuBarController` 中的 `NSStatusBar`/`NSStatusItem`/`NSMenu` 代码，改用 SwiftUI `MenuBarExtra`，绑定 `AppSettings.showInMenuBar` 控制显示/隐藏
+  - **菜单系统重写**：使用 SwiftUI `Commands`、`CommandMenu` 和 `CommandGroup` 替代 `NSMenu` 手动菜单
+  - **退出清理迁移**：使用 `CommandGroup(replacing: .appTermination)` 处理退出时的资源清理，不再依赖 `applicationWillTerminate`
+  - **验证**：编译通过，SwiftLint 无违规，GitHub Actions Build 和 SwiftLint 均成功
