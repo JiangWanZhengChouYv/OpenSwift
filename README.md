@@ -90,9 +90,24 @@ OpenSpeedy-Mac/
 
 ## 快速开始
 
-### 1. 环境要求
+### 通过 HomeBrew 安装（推荐）
 
-- **操作系统**：macOS 11.0 及以上
+```bash
+# 添加 Tap
+brew tap JiangWanZhengChouYv/OpenSwift
+
+# 安装 CLI 工具
+brew install openswift
+
+# 安装 GUI 应用
+brew install --cask openswift
+```
+
+### 手动安装
+
+#### 1. 环境要求
+
+- **操作系统**：macOS 13.0 及以上
 - **Xcode**：15.0+，命令行工具（`xcode-select --install`）
 - **Swift**：5.0+
 - **[XcodeGen](https://github.com/yonaskolb/XcodeGen)**：用于从 `project.yml` 生成 Xcode 工程
