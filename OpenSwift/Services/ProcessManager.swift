@@ -37,7 +37,6 @@ class ProcessManager: ObservableObject {
 
     deinit {
         if let observer = processObserver { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
-        cleanupAll()
     }
 
     private func setupBindings() {

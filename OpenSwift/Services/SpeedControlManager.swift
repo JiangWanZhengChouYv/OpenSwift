@@ -271,8 +271,8 @@ class SpeedControlManager {
     }
 
     deinit {
-        ioQueue.sync {
-            detachSilentlyInternal()
+        ioQueue.async { [weak self] in
+            self?.detachSilentlyInternal()
         }
     }
 }
