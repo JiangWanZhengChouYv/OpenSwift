@@ -270,10 +270,15 @@ class SpeedControlManager {
         logDebug("Detached silently (shared memory preserved)", log: .speed)
     }
 
-    deinit {
+    func shutdown() {
         ioQueue.async { [weak self] in
             self?.detachSilentlyInternal()
         }
+    }
+    
+    deinit {
+        // 空 deinit - 清理逻辑已迁移到 shutdown()
+        // 由调用方显式调用 shutdown() 进行清理
     }
 }
 

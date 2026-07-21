@@ -242,6 +242,11 @@ class AppSettings: ObservableObject {
         maxHistoryCount = settings.maxHistoryCount
         autoCleanupInactive = settings.autoCleanupInactive
     }
+    
+    func shutdown() {
+        save()
+        logInfo("AppSettings shutdown complete", log: .settings)
+    }
 }
 
 struct AppSettingsExportData: Codable {

@@ -190,6 +190,11 @@ class ProcessHistory: ObservableObject {
             recentPIDs = Set(history.map { $0.pid })
         }
     }
+    
+    func shutdown() {
+        saveToDisk()
+        logInfo("ProcessHistory shutdown complete", log: .openswift)
+    }
 }
 
 struct ProcessHistoryData: Codable {

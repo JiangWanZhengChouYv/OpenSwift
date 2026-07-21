@@ -100,6 +100,10 @@ class SpeedControlState: ObservableObject {
             return .normal
         }
     }
+    
+    func shutdown() {
+        logInfo("SpeedControlState shutdown complete", log: .speed)
+    }
 }
 
 enum SpeedCategory {

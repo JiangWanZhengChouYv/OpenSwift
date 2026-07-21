@@ -48,4 +48,8 @@ class HotkeyStorage {
             save(configurations)
         }
     }
+    
+    func shutdown() {
+        logDebug("HotkeyStorage shutdown complete", log: .hotkey)
+    }
 }

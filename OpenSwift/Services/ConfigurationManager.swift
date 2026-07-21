@@ -217,4 +217,8 @@ class ConfigurationManager {
             return nil
         }
     }
+    
+    func shutdown() {
+        logInfo("ConfigurationManager shutdown complete", log: .openswift)
+    }
 }

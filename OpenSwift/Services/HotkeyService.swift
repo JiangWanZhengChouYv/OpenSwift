@@ -202,4 +202,9 @@ class HotkeyService: ObservableObject {
     func configuration(for action: HotkeyAction) -> HotkeyConfig? {
         return configurations.first { $0.action == action }
     }
+    
+    func shutdown() {
+        unregisterHotkeys()
+        logInfo("HotkeyService shutdown complete", log: .hotkey)
+    }
 }

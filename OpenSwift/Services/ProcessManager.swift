@@ -17,6 +17,7 @@ class ProcessManager: ObservableObject {
     private let cleanupQueue = DispatchQueue(label: "com.openswift.cleanup", qos: .utility)
     private var speedControllers: [pid_t: SpeedControlManager] = [:]
     private let controllerQueue = DispatchQueue(label: "com.openswift.processmanager.controllers", qos: .userInitiated)
+    private let stateQueue = DispatchQueue(label: "com.openswift.processmanager.state", qos: .userInitiated)
     private var lastRefreshTime: Date = .distantPast
     private let minimumRefreshInterval: TimeInterval = 1.0
 
@@ -85,56 +86,109 @@ class ProcessManager: ObservableObject {
     func clearSelection() { selectedProcess = nil }
     func updateSearchText(_ text: String) { searchText = text }
     func updateSortOption(_ option: ProcessSortOption) { sortOption = option }
-    func getProcessByPID(_ pid: pid_t) -> ProcessInfo? { processes.first { $0.pid == pid } }
-    func isProcessInjected(_ process: ProcessInfo) -> Bool { injectedProcesses.contains { $0.pid == process.pid } }
-    func isProcessInjected(pid: pid_t) -> Bool { injectedProcesses.contains { $0.pid == pid } }
+    func getProcessByPID(_ pid: pid_t) -> ProcessInfo? {
+        return stateQueue.sync { processes.first { $0.pid == pid } }
+    }
+    
+    func isProcessInjected(_ process: ProcessInfo) -> Bool {
+        return stateQueue.sync { injectedProcesses.contains { $0.pid == process.pid } }
+    }
+    
+    func isProcessInjected(pid: pid_t) -> Bool {
+        return stateQueue.sync { injectedProcesses.contains { $0.pid == pid } }
+    }
 
     func injectSpeedControl(into process: ProcessInfo) { injectSpeedControl(into: process, autoInject: false) }
 
     func injectSpeedControl(into process: ProcessInfo, autoInject: Bool) {
-        guard !isProcessInjected(process) else { return }
-        let dylibPath = "/usr/lib/SpeedPatch.dylib"
-        switch ProcessInjector.shared.inject(pid: process.pid, dylibPath: dylibPath) {
-        case .success:
-            let injectedProcess = InjectedProcess(
-                pid: process.pid,
-                processInfo: process,
-                speedRatio: 1.0,
-                isEnabled: false
-            )
-            injectedProcesses.append(injectedProcess)
-            ProcessHistory.shared.addToHistory(injectedProcess)
-            if let lastSpeed = ProcessHistory.shared.getLastSpeedRatio(for: process.pid) {
-                updateInjectedProcess(pid: process.pid, speedRatio: lastSpeed)
+        let pid = process.pid
+        
+        stateQueue.sync {
+            guard !injectedProcesses.contains(where: { $0.pid == pid }) else { return }
+            
+            let dylibPath = "/usr/lib/SpeedPatch.dylib"
+            switch ProcessInjector.shared.inject(pid: pid, dylibPath: dylibPath) {
+            case .success:
+                let injectedProcess = InjectedProcess(
+                    pid: pid,
+                    processInfo: process,
+                    speedRatio: 1.0,
+                    isEnabled: false
+                )
+                injectedProcesses.append(injectedProcess)
+                ProcessHistory.shared.addToHistory(injectedProcess)
+                if let lastSpeed = ProcessHistory.shared.getLastSpeedRatio(for: pid) {
+                    updateInjectedProcessInternal(pid: pid, speedRatio: lastSpeed)
+                }
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    self.handleInjectionError(error, for: process)
+                }
             }
-        case .failure(let error): handleInjectionError(error, for: process)
         }
     }
 
     func removeInjectedProcess(_ injected: InjectedProcess) {
-        _ = ProcessInjector.shared.eject(pid: injected.pid)
-        cleanupSharedMemory(for: injected.pid)
-        injectedProcesses.removeAll { $0.id == injected.id }
-        if selectedProcess?.pid == injected.pid { selectedProcess = nil }
+        let pid = injected.pid
+        let wasSelected = selectedProcess?.pid == pid
+        
+        _ = ProcessInjector.shared.eject(pid: pid)
+        cleanupSharedMemory(for: pid)
+        
+        stateQueue.sync {
+            injectedProcesses.removeAll { $0.id == injected.id }
+        }
+        
+        if wasSelected {
+            selectedProcess = nil
+        }
     }
 
     func removeInjectedProcess(_ process: ProcessInfo) {
-        if let injected = injectedProcesses.first(where: { $0.pid == process.pid }) { removeInjectedProcess(injected) }
+        stateQueue.sync {
+            if let injected = injectedProcesses.first(where: { $0.pid == process.pid }) {
+                DispatchQueue.main.async {
+                    self.removeInjectedProcess(injected)
+                }
+            }
+        }
     }
 
     func updateInjectedProcess(pid: pid_t, speedRatio: Double) {
-        if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
-            injectedProcesses[index].speedRatio = speedRatio
-            let controller = controller(for: pid)
-            if !controller.isConnected { _ = controller.attachToProcess(pid: pid) }
-            _ = controller.setSpeedRatio(Float(speedRatio))
+        stateQueue.sync {
+            updateInjectedProcessInternal(pid: pid, speedRatio: speedRatio)
         }
     }
 
     func updateInjectedProcess(pid: pid_t, isEnabled: Bool) {
+        stateQueue.sync {
+            updateInjectedProcessEnabledInternal(pid: pid, isEnabled: isEnabled)
+        }
+    }
+    
+    private func updateInjectedProcessInternal(pid: pid_t, speedRatio: Double) {
+        if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
+            injectedProcesses[index].speedRatio = speedRatio
+            let controller = controllerQueue.sync {
+                if let existing = speedControllers[pid] { return existing }
+                let controller = SpeedControlManager(pid: pid)
+                speedControllers[pid] = controller
+                return controller
+            }
+            if !controller.isConnected { _ = controller.attachToProcess(pid: pid) }
+            _ = controller.setSpeedRatio(Float(speedRatio))
+        }
+    }
+    
+    private func updateInjectedProcessEnabledInternal(pid: pid_t, isEnabled: Bool) {
         if let index = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
             injectedProcesses[index].isEnabled = isEnabled
-            let controller = controller(for: pid)
+            let controller = controllerQueue.sync {
+                if let existing = speedControllers[pid] { return existing }
+                let controller = SpeedControlManager(pid: pid)
+                speedControllers[pid] = controller
+                return controller
+            }
             if !controller.isConnected { _ = controller.attachToProcess(pid: pid) }
             _ = controller.setEnabled(isEnabled)
         }
@@ -150,22 +204,32 @@ class ProcessManager: ObservableObject {
     }
 
     func setSpeedForAllProcesses(_ speed: Double) {
-        injectedProcesses.filter { $0.isActive }
-            .forEach { updateInjectedProcess(pid: $0.pid, speedRatio: speed) }
+        let activePIDs = stateQueue.sync {
+            injectedProcesses.filter { $0.isActive }.map { $0.pid }
+        }
+        activePIDs.forEach { updateInjectedProcess(pid: $0, speedRatio: speed) }
     }
     
     func enableAllProcesses() {
-        injectedProcesses.filter { $0.isActive }
-            .forEach { updateInjectedProcess(pid: $0.pid, isEnabled: true) }
+        let activePIDs = stateQueue.sync {
+            injectedProcesses.filter { $0.isActive }.map { $0.pid }
+        }
+        activePIDs.forEach { updateInjectedProcess(pid: $0, isEnabled: true) }
     }
     
     func disableAllProcesses() {
-        injectedProcesses.forEach { updateInjectedProcess(pid: $0.pid, isEnabled: false) }
+        let pids = stateQueue.sync {
+            injectedProcesses.map { $0.pid }
+        }
+        pids.forEach { updateInjectedProcess(pid: $0, isEnabled: false) }
     }
 
     func cleanupAll() {
-        let pids = injectedProcesses.map { $0.pid }
-        injectedProcesses.removeAll()
+        let pids = stateQueue.sync {
+            let pids = injectedProcesses.map { $0.pid }
+            injectedProcesses.removeAll()
+            return pids
+        }
         
         pids.forEach { pid in
             _ = ProcessInjector.shared.eject(pid: pid)
@@ -187,12 +251,15 @@ class ProcessManager: ObservableObject {
     }
 
     private func cleanupTerminatedProcess(pid: pid_t) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if let injectedIndex = self.injectedProcesses.firstIndex(where: { $0.pid == pid }) {
-                self.injectedProcesses[injectedIndex].isActive = false
-                self.cleanupSharedMemory(for: pid)
-                if self.selectedProcess?.pid == pid { self.selectedProcess = nil }
+        stateQueue.sync {
+            if let injectedIndex = injectedProcesses.firstIndex(where: { $0.pid == pid }) {
+                injectedProcesses[injectedIndex].isActive = false
+                cleanupSharedMemory(for: pid)
+                if selectedProcess?.pid == pid {
+                    DispatchQueue.main.async {
+                        self.selectedProcess = nil
+                    }
+                }
             }
         }
     }
@@ -208,9 +275,66 @@ class ProcessManager: ObservableObject {
     }
 
     private func updateInjectedProcessesStatus() {
-        let activePIDs = Set(processes.map { $0.pid })
-        injectedProcesses.indices.forEach {
-            injectedProcesses[$0].isActive = activePIDs.contains(injectedProcesses[$0].pid)
+        stateQueue.sync {
+            let activePIDs = Set(processes.map { $0.pid })
+            injectedProcesses.indices.forEach {
+                injectedProcesses[$0].isActive = activePIDs.contains(injectedProcesses[$0].pid)
+            }
+        }
+    }
+    
+    private func loadSavedGroups() {
+        if let data = UserDefaults.standard.data(forKey: "ProcessGroups"),
+           let groupsData = try? JSONDecoder().decode([ProcessGroupData].self, from: data) {
+            processGroups = groupsData.map { $0.toProcessGroup() }
+        }
+    }
+    
+    func createGroup(name: String, processes: [InjectedProcess]) -> ProcessGroup {
+        let group = ProcessGroup(name: name, processes: processes)
+        stateQueue.sync {
+            processGroups.append(group)
+            saveGroups()
+        }
+        return group
+    }
+
+    func deleteGroup(_ group: ProcessGroup) {
+        stateQueue.sync {
+            processGroups.removeAll { $0.id == group.id }
+            saveGroups()
+        }
+    }
+    
+    func addToGroup(_ group: ProcessGroup, process: InjectedProcess) {
+        stateQueue.sync {
+            if let index = processGroups.firstIndex(where: { $0.id == group.id }) {
+                processGroups[index].addProcess(process)
+                saveGroups()
+            }
+        }
+    }
+    
+    func removeFromGroup(_ group: ProcessGroup, pid: pid_t) {
+        stateQueue.sync {
+            if let index = processGroups.firstIndex(where: { $0.id == group.id }) {
+                processGroups[index].removeProcess(pid: pid)
+                saveGroups()
+            }
+        }
+    }
+
+    func applyGroup(_ group: ProcessGroup) {
+        group.processes.filter { $0.isActive }.forEach {
+            if !isProcessInjected(pid: $0.pid) { injectSpeedControl(into: $0.processInfo) }
+            updateInjectedProcess(pid: $0.pid, speedRatio: $0.speedRatio)
+            updateInjectedProcess(pid: $0.pid, isEnabled: $0.isEnabled)
+        }
+    }
+
+    private func saveGroups() {
+        if let data = try? JSONEncoder().encode(processGroups.map { ProcessGroupData(from: $0) }) {
+            UserDefaults.standard.set(data, forKey: "ProcessGroups")
         }
     }
 }
@@ -232,144 +356,9 @@ extension ProcessManager {
         }
     }
 
-    func getInjectedProcess(pid: pid_t) -> InjectedProcess? { injectedProcesses.first { $0.pid == pid } }
+    func getInjectedProcess(pid: pid_t) -> InjectedProcess? {
+        return stateQueue.sync { injectedProcesses.first { $0.pid == pid } }
+    }
+    
     func validateInjection(pid: pid_t) -> Bool { ProcessInjector.shared.isInjected(pid: pid) }
-
-    func createGroup(name: String, processes: [InjectedProcess]) -> ProcessGroup {
-        let group = ProcessGroup(name: name, processes: processes)
-        processGroups.append(group)
-        saveGroups()
-        return group
-    }
-
-    func deleteGroup(_ group: ProcessGroup) { processGroups.removeAll { $0.id == group.id }; saveGroups() }
-    func addToGroup(_ group: ProcessGroup, process: InjectedProcess) {
-        if let index = processGroups.firstIndex(where: { $0.id == group.id }) {
-            processGroups[index].addProcess(process)
-            saveGroups()
-        }
-    }
-    
-    func removeFromGroup(_ group: ProcessGroup, pid: pid_t) {
-        if let index = processGroups.firstIndex(where: { $0.id == group.id }) {
-            processGroups[index].removeProcess(pid: pid)
-            saveGroups()
-        }
-    }
-
-    func applyGroup(_ group: ProcessGroup) {
-        group.processes.filter { $0.isActive }.forEach {
-            if !isProcessInjected(pid: $0.pid) { injectSpeedControl(into: $0.processInfo) }
-            updateInjectedProcess(pid: $0.pid, speedRatio: $0.speedRatio)
-            updateInjectedProcess(pid: $0.pid, isEnabled: $0.isEnabled)
-        }
-    }
-
-    private func saveGroups() {
-        if let data = try? JSONEncoder().encode(processGroups.map { ProcessGroupData(from: $0) }) {
-            UserDefaults.standard.set(data, forKey: "ProcessGroups")
-        }
-    }
-
-    private func loadSavedGroups() {
-        if let data = UserDefaults.standard.data(forKey: "ProcessGroups"),
-           let groupsData = try? JSONDecoder().decode([ProcessGroupData].self, from: data) {
-            processGroups = groupsData.map { $0.toProcessGroup() }
-        }
-    }
-
-    func showInContextMenu(for process: ProcessInfo, at location: NSPoint, in view: NSView) {
-        createContextMenu(for: process).popUp(positioning: nil, at: location, in: view)
-    }
-
-    func createContextMenu(for process: ProcessInfo) -> NSMenu {
-        let menu = NSMenu()
-        if isProcessInjected(process) {
-            addInjectedProcessMenuItems(to: menu, for: process)
-        } else {
-            addInjectMenuItem(to: menu, for: process)
-        }
-        menu.addItem(NSMenuItem.separator())
-        addCommonMenuItems(to: menu, for: process)
-        return menu
-    }
-
-    private func addInjectedProcessMenuItems(to menu: NSMenu, for process: ProcessInfo) {
-        menu.addItem(menuItem(title: "卸载 SpeedPatch", action: #selector(ejectSpeedPatch(_:)), object: process))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(menuItem(title: "启用加速", action: #selector(enableSpeedControl(_:)), object: process))
-        menu.addItem(menuItem(title: "禁用加速", action: #selector(disableSpeedControl(_:)), object: process))
-        menu.addItem(NSMenuItem.separator())
-        addSpeedSubmenu(to: menu, for: process)
-    }
-
-    private func addInjectMenuItem(to menu: NSMenu, for process: ProcessInfo) {
-        menu.addItem(menuItem(title: "注入 SpeedPatch", action: #selector(injectSpeedPatch(_:)), object: process))
-    }
-
-    private func addSpeedSubmenu(to menu: NSMenu, for process: ProcessInfo) {
-        let speedSubmenu = NSMenu()
-        [(0.5, "0.5x (慢速)"), (1.0, "1.0x (正常)"), (1.5, "1.5x (加速)"), (2.0, "2.0x (快速)"), (5.0, "5.0x (超速)")]
-            .forEach { speedSubmenu.addItem(createSpeedMenuItem(title: $1, speed: $0, process: process)) }
-        let speedMenuItem = NSMenuItem(title: "快速设置速度", action: nil, keyEquivalent: "")
-        speedMenuItem.submenu = speedSubmenu
-        menu.addItem(speedMenuItem)
-    }
-
-    private func addCommonMenuItems(to menu: NSMenu, for process: ProcessInfo) {
-        menu.addItem(menuItem(title: "复制进程信息", action: #selector(copyProcessInfo(_:)), object: process))
-        if let path = process.path {
-            menu.addItem(menuItem(title: "在 Finder 中显示", action: #selector(showInFinder(_:)), object: path))
-        }
-    }
-
-    private func menuItem(title: String, action: Selector, object: Any) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.representedObject = object; item.target = self; return item
-    }
-
-    private func createSpeedMenuItem(title: String, speed: Double, process: ProcessInfo) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: #selector(setQuickSpeed(_:)), keyEquivalent: "")
-        item.representedObject = (process, speed); item.target = self; return item
-    }
-
-    @objc private func injectSpeedPatch(_ sender: NSMenuItem) {
-        if let p = sender.representedObject as? ProcessInfo { injectSpeedControl(into: p) }
-    }
-    
-    @objc private func ejectSpeedPatch(_ sender: NSMenuItem) {
-        if let p = sender.representedObject as? ProcessInfo { removeInjectedProcess(p) }
-    }
-    
-    @objc private func enableSpeedControl(_ sender: NSMenuItem) {
-        if let p = sender.representedObject as? ProcessInfo {
-            updateInjectedProcess(pid: p.pid, isEnabled: true)
-        }
-    }
-    
-    @objc private func disableSpeedControl(_ sender: NSMenuItem) {
-        if let p = sender.representedObject as? ProcessInfo {
-            updateInjectedProcess(pid: p.pid, isEnabled: false)
-        }
-    }
-    
-    @objc private func setQuickSpeed(_ sender: NSMenuItem) {
-        if let (p, s) = sender.representedObject as? (ProcessInfo, Double) {
-            updateInjectedProcess(pid: p.pid, speedRatio: s)
-        }
-    }
-
-    @objc private func copyProcessInfo(_ sender: NSMenuItem) {
-        guard let process = sender.representedObject as? ProcessInfo else { return }
-        var info = "进程名称: \(process.name)\nPID: \(process.pid)\n"
-        if let id = process.bundleIdentifier { info += "Bundle ID: \(id)\n" }
-        if let path = process.path { info += "路径: \(path)" }
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(info, forType: .string)
-    }
-
-    @objc private func showInFinder(_ sender: NSMenuItem) {
-        guard let path = sender.representedObject as? String else { return }
-        let url = URL(fileURLWithPath: path)
-        NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
-    }
 }

@@ -85,4 +85,9 @@ class GlobalHotkeyManager {
         _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
         logDebug("Requested accessibility permissions", log: .hotkey)
     }
+    
+    func shutdown() {
+        stopMonitoring()
+        logInfo("GlobalHotkeyManager shutdown complete", log: .hotkey)
+    }
 }

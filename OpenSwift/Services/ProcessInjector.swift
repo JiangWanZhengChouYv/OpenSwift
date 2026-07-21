@@ -89,4 +89,11 @@ class ProcessInjector {
     func getInjectedPIDs() -> Set<pid_t> {
         return injectedPIDs
     }
+    
+    func shutdown() {
+        injectQueue.sync {
+            injectedPIDs.removeAll()
+        }
+        logInfo("ProcessInjector shutdown complete", log: .openswift)
+    }
 }
