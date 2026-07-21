@@ -263,28 +263,20 @@ static uint64_t hooked_mach_absolute_time(void) {
     float ratio = speedpatch_get_speed_ratio();
     bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
 
-    if (state_changed && active) {
-        g_base_mach_absolute_time = current_time;
-        g_last_returned_mach_time = current_time;
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
-    } else if (state_changed && !active) {
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
-    }
-
     if (!active) {
         g_last_returned_mach_time = current_time;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
         return current_time;
     }
 
     if (ratio <= 0.0f || ratio == 1.0f) {
         g_last_returned_mach_time = current_time;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
         return current_time;
     }
 
-    // 基准时间法：scaled_delta = delta * ratio；result = base + scaled_delta
-    // 时间读取函数使用乘法（让 app 感知时间流逝更快），sleep/usleep 使用除法（缩短实际等待）
     uint64_t base = g_base_mach_absolute_time;
     uint64_t result;
 
@@ -296,10 +288,16 @@ static uint64_t hooked_mach_absolute_time(void) {
         result = base + scaled_delta;
     }
 
-    // 单调性保护：不允许回退，最小 +1 递增
     if (result <= g_last_returned_mach_time) {
         result = g_last_returned_mach_time + 1;
     }
+
+    if (state_changed) {
+        g_base_mach_absolute_time = current_time - (result - g_last_returned_mach_time) / (uint64_t)ratio;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    }
+
     g_last_returned_mach_time = result;
 
     return result;
@@ -325,22 +323,17 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     float ratio = speedpatch_get_speed_ratio();
     bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
 
-    if (state_changed && active) {
-        g_base_clock_gettime_sec = (int64_t)tp->tv_sec;
-        g_base_clock_gettime_nsec = tp->tv_nsec;
+    if (!active) {
         g_last_clock_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
-    } else if (state_changed && !active) {
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
-    }
-
-    if (!active) {
         return result;
     }
 
     if (ratio <= 0.0f || ratio == 1.0f) {
+        g_last_clock_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
         return result;
     }
 
@@ -367,6 +360,17 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     if (new_total_ns <= g_last_clock_ns) {
         new_total_ns = g_last_clock_ns + 1;
     }
+
+    if (state_changed) {
+        int64_t time_delta_ns = new_total_ns - g_last_clock_ns;
+        int64_t real_delta_ns = (int64_t)((double)time_delta_ns / (double)ratio);
+        int64_t new_base_total_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec - real_delta_ns;
+        g_base_clock_gettime_sec = new_base_total_ns / 1000000000LL;
+        g_base_clock_gettime_nsec = (long)(new_base_total_ns - g_base_clock_gettime_sec * 1000000000LL);
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    }
+
     g_last_clock_ns = new_total_ns;
 
     // 分解为秒 + 纳秒，并把纳秒规范到 [0, 1e9)

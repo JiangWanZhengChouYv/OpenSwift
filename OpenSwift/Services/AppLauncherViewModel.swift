@@ -52,7 +52,32 @@ class AppLauncherViewModel: ObservableObject {
     func refreshLaunchedProcesses() {
         let latest = AppLauncher.shared.getLaunchedProcesses()
         DispatchQueue.main.async { [weak self] in
-            self?.launchedProcesses = latest
+            guard let self = self else { return }
+            
+            let existing = self.launchedProcesses
+            
+            let merged = latest.map { newProcess -> LaunchedProcess in
+                if let existingProcess = existing.first(where: { $0.pid == newProcess.pid }) {
+                    var updated = newProcess
+                    updated.currentSpeed = existingProcess.currentSpeed
+                    updated.isSpeedControlEnabled = existingProcess.isSpeedControlEnabled
+                    updated.isSharedMemoryConnected = existingProcess.isSharedMemoryConnected
+                    updated.speedController = existingProcess.speedController
+                    return updated
+                }
+                return newProcess
+            }
+            
+            self.launchedProcesses = merged
+            
+            if let selected = self.selectedLaunchedProcess {
+                if let updatedSelected = merged.first(where: { $0.pid == selected.pid }) {
+                    self.selectedLaunchedProcess = updatedSelected
+                } else {
+                    self.selectedLaunchedProcess = nil
+                    SpeedControlState.shared.currentController = nil
+                }
+            }
         }
     }
 
