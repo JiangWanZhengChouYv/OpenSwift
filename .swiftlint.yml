@@ -1,3 +1,7 @@
+excluded:
+  - build/
+  - DerivedData/
+
 disabled_rules:
   - trailing_whitespace  # 行尾空格（不影响功能）
   - orphaned_doc_comment  # 孤立的文档注释

@@ -293,7 +293,7 @@ static uint64_t hooked_mach_absolute_time(void) {
     }
 
     if (state_changed) {
-        g_base_mach_absolute_time = current_time - (result - g_last_returned_mach_time) / (uint64_t)ratio;
+        g_base_mach_absolute_time = current_time;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
     }
@@ -309,7 +309,6 @@ static uint64_t hooked_mach_absolute_time(void) {
 // 使用基准时间法缩放，并保持单调性。
 //
 static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
-    // 只修改单调时钟，其他时钟全部透传
     if (clk_id != CLOCK_MONOTONIC && clk_id != CLOCK_MONOTONIC_RAW) {
         return original_clock_gettime(clk_id, tp);
     }
@@ -337,43 +336,38 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
         return result;
     }
 
-    // 计算自基准以来的累计纳秒差
-    int64_t delta_sec  = (int64_t)tp->tv_sec  - (int64_t)g_base_clock_gettime_sec;
-    int64_t delta_nsec = (int64_t)tp->tv_nsec - (int64_t)g_base_clock_gettime_nsec;
-    int64_t delta_total_ns = delta_sec * 1000000000LL + delta_nsec;
-
-    if (delta_total_ns < 0) {
-        // 当前时间比基准还早（异常或时钟回拨），不缩放，直接透传
-        return result;
-    }
-
-    // 缩放：adjusted_ns = delta_total_ns * ratio（时间读取用乘法，让 app 感知时间更快）
-    int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
-
-    // 新的绝对纳秒：基准纳秒 + 调整后的纳秒
-    int64_t base_total_ns =
-        (int64_t)g_base_clock_gettime_sec * 1000000000LL +
-        (int64_t)g_base_clock_gettime_nsec;
-    int64_t new_total_ns = base_total_ns + adjusted_ns;
-
-    // 单调性保护：不允许回退，最小 +1 递增
-    if (new_total_ns <= g_last_clock_ns) {
-        new_total_ns = g_last_clock_ns + 1;
-    }
+    int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
 
     if (state_changed) {
-        int64_t time_delta_ns = new_total_ns - g_last_clock_ns;
-        int64_t real_delta_ns = (int64_t)((double)time_delta_ns / (double)ratio);
-        int64_t new_base_total_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec - real_delta_ns;
+        double d_ratio = (double)ratio;
+        double d_current_real_ns = (double)current_real_ns;
+        double d_last_clock_ns = (double)g_last_clock_ns;
+        double d_new_base_total_ns = (d_current_real_ns * d_ratio - d_last_clock_ns - 1.0) / (d_ratio - 1.0);
+        int64_t new_base_total_ns = (int64_t)d_new_base_total_ns;
         g_base_clock_gettime_sec = new_base_total_ns / 1000000000LL;
         g_base_clock_gettime_nsec = (long)(new_base_total_ns - g_base_clock_gettime_sec * 1000000000LL);
         g_last_known_ratio = ratio;
         g_last_known_active = active;
     }
 
+    int64_t base_total_ns =
+        (int64_t)g_base_clock_gettime_sec * 1000000000LL +
+        (int64_t)g_base_clock_gettime_nsec;
+    int64_t delta_total_ns = current_real_ns - base_total_ns;
+
+    if (delta_total_ns < 0) {
+        return result;
+    }
+
+    int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
+    int64_t new_total_ns = base_total_ns + adjusted_ns;
+
+    if (new_total_ns <= g_last_clock_ns) {
+        new_total_ns = g_last_clock_ns + 1;
+    }
+
     g_last_clock_ns = new_total_ns;
 
-    // 分解为秒 + 纳秒，并把纳秒规范到 [0, 1e9)
     int64_t out_sec  = new_total_ns / 1000000000LL;
     long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
 
