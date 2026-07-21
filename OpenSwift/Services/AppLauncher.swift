@@ -122,33 +122,31 @@ class AppLauncher {
 
     func getDylibPath() -> Result<String, AppLauncherError> {
         logDebug("Searching for SpeedPatch.dylib...", log: .launcher)
-
+        let fm = FileManager.default
         let bundleURL = Bundle.main.bundleURL
-
-        var candidatePaths: [String] = [
-            bundleURL.appendingPathComponent("Contents/PlugIns/SpeedPatch.dylib").path,
-            bundleURL.appendingPathComponent("Contents/Frameworks/SpeedPatch.dylib").path,
-            bundleURL.appendingPathComponent("SpeedPatch.dylib").path
+        let execDir = Bundle.main.executableURL?.deletingLastPathComponent()
+        let bundlePaths = [
+            "Contents/PlugIns/SpeedPatch/SpeedPatch.dylib/Contents/MacOS/SpeedPatch",
+            "Contents/PlugIns/SpeedPatch.dylib/Contents/MacOS/SpeedPatch",
+            "Contents/PlugIns/SpeedPatch.dylib",
+            "Contents/Frameworks/SpeedPatch.dylib",
+            "SpeedPatch.dylib"
         ]
-
-        if let executableDir = Bundle.main.executableURL?.deletingLastPathComponent() {
-            candidatePaths.append(executableDir.appendingPathComponent("SpeedPatch.dylib").path)
+        var candidates = bundlePaths.map { bundleURL.appendingPathComponent($0).path }
+        if let d = execDir { candidates.append(d.appendingPathComponent("SpeedPatch.dylib").path) }
+        if let p = Bundle.main.object(forInfoDictionaryKey: "DylibSearchPath") as? String {
+            let u = URL(fileURLWithPath: p)
+            candidates.append(u.appendingPathComponent("SpeedPatch.dylib/Contents/MacOS/SpeedPatch").path)
+            candidates.append(u.appendingPathComponent("SpeedPatch.dylib").path)
         }
-
-        if let plistSearchPath = Bundle.main.object(forInfoDictionaryKey: "DylibSearchPath") as? String {
-            let customURL = URL(fileURLWithPath: plistSearchPath).appendingPathComponent("SpeedPatch.dylib")
-            candidatePaths.append(customURL.path)
-        }
-
-        for path in candidatePaths {
-            if FileManager.default.fileExists(atPath: path) {
+        for path in candidates {
+            if fm.fileExists(atPath: path) {
                 logInfo("Found SpeedPatch.dylib: \(path)", log: .launcher)
                 return .success(path)
             }
         }
-
         logError("SpeedPatch.dylib not found", log: .launcher)
-        logDebug("Searched paths: \(candidatePaths.joined(separator: ", "))", log: .launcher)
+        logDebug("Searched paths: \(candidates.joined(separator: ", "))", log: .launcher)
         return .failure(.dylibNotFound)
     }
 

@@ -63,13 +63,17 @@ static const float DEFAULT_SPEED_RATIO = 1.0f;
 
 // 时间函数 Hook 的基准时间值（由 speedpatch_init_time_base 初始化）
 static uint64_t g_base_mach_absolute_time = 0;
-static double   g_base_clock_gettime_sec = 0.0;
+static int64_t  g_base_clock_gettime_sec = 0;
 static long     g_base_clock_gettime_nsec = 0;
 static bool     g_time_base_initialized = false;
 
 // 单调性保护变量：确保缩放后的时间始终单调递增
 static uint64_t g_last_returned_mach_time = 0;
 static int64_t  g_last_clock_ns = INT64_MIN;
+
+// 记录上一次的 ratio 和 active 状态，用于检测倍率变化并重置基准
+static float g_last_known_ratio = 1.0f;
+static bool  g_last_known_active = false;
 
 //
 // 共享内存初始化
@@ -255,19 +259,32 @@ static CFAbsoluteTimeGetCurrent_t original_CFAbsoluteTimeGetCurrent = NULL;
 static uint64_t hooked_mach_absolute_time(void) {
     uint64_t current_time = original_mach_absolute_time();
 
-    if (!speedpatch_is_active()) {
-        // 透传
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
+
+    if (state_changed && active) {
+        g_base_mach_absolute_time = current_time;
+        g_last_returned_mach_time = current_time;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    } else if (state_changed && !active) {
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    }
+
+    if (!active) {
         g_last_returned_mach_time = current_time;
         return current_time;
     }
 
-    float ratio = speedpatch_get_speed_ratio();
     if (ratio <= 0.0f || ratio == 1.0f) {
         g_last_returned_mach_time = current_time;
         return current_time;
     }
 
-    // 基准时间法：delta = (current - base) / ratio；result = base + delta
+    // 基准时间法：scaled_delta = delta * ratio；result = base + scaled_delta
+    // 时间读取函数使用乘法（让 app 感知时间流逝更快），sleep/usleep 使用除法（缩短实际等待）
     uint64_t base = g_base_mach_absolute_time;
     uint64_t result;
 
@@ -275,7 +292,7 @@ static uint64_t hooked_mach_absolute_time(void) {
         result = current_time;
     } else {
         uint64_t delta = current_time - base;
-        uint64_t scaled_delta = (uint64_t)((double)delta / (double)ratio);
+        uint64_t scaled_delta = (uint64_t)((double)delta * (double)ratio);
         result = base + scaled_delta;
     }
 
@@ -304,11 +321,25 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
         return result;
     }
 
-    if (!speedpatch_is_active()) {
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
+
+    if (state_changed && active) {
+        g_base_clock_gettime_sec = (int64_t)tp->tv_sec;
+        g_base_clock_gettime_nsec = tp->tv_nsec;
+        g_last_clock_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    } else if (state_changed && !active) {
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    }
+
+    if (!active) {
         return result;
     }
 
-    float ratio = speedpatch_get_speed_ratio();
     if (ratio <= 0.0f || ratio == 1.0f) {
         return result;
     }
@@ -323,8 +354,8 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
         return result;
     }
 
-    // 缩放：adjusted_ns = delta_total_ns / ratio
-    int64_t adjusted_ns = (int64_t)((double)delta_total_ns / (double)ratio);
+    // 缩放：adjusted_ns = delta_total_ns * ratio（时间读取用乘法，让 app 感知时间更快）
+    int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
 
     // 新的绝对纳秒：基准纳秒 + 调整后的纳秒
     int64_t base_total_ns =
@@ -433,7 +464,7 @@ static clock_t hooked_clock(void) {
         return result;
     }
 
-    return (clock_t)((double)result / ratio);
+    return (clock_t)((double)result * (double)ratio);
 }
 
 //
@@ -463,16 +494,16 @@ static void speedpatch_init_time_base(void) {
     if (original_clock_gettime != NULL) {
         struct timespec tp;
         if (original_clock_gettime(CLOCK_MONOTONIC, &tp) == 0) {
-            g_base_clock_gettime_sec  = (double)tp.tv_sec;
+            g_base_clock_gettime_sec  = (int64_t)tp.tv_sec;
             g_base_clock_gettime_nsec = (long)tp.tv_nsec;
             g_last_clock_ns = (int64_t)tp.tv_sec * 1000000000LL + (int64_t)tp.tv_nsec;
         }
     }
 
     g_time_base_initialized = true;
-    printf("[SpeedPatch] Time base initialized (mach_base=%llu, clock_monotonic_base_sec=%.0f, nsec=%ld)\n",
+    printf("[SpeedPatch] Time base initialized (mach_base=%llu, clock_monotonic_base_sec=%lld, nsec=%ld)\n",
            (unsigned long long)g_base_mach_absolute_time,
-           g_base_clock_gettime_sec,
+           (long long)g_base_clock_gettime_sec,
            g_base_clock_gettime_nsec);
 }
 
