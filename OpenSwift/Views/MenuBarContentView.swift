@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct MenuBarContentView: View {
-    @EnvironmentObject var appSettings: AppSettings
-
+    @Binding var showMenuBar: Bool
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button("显示主界面") {
@@ -11,7 +11,7 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Toggle("显示菜单栏图标", isOn: $appSettings.showInMenuBar)
+            Toggle("显示菜单栏图标", isOn: $showMenuBar)
 
             Divider()
 

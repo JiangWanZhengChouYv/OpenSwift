@@ -2,12 +2,11 @@ import SwiftUI
 
 @main
 struct OpenSwiftApp: App {
-    @StateObject private var appSettings = AppSettings.shared
+    @State private var showMenuBar = true
     
     var body: some Scene {
         Window("OpenSwift", id: "main") {
             ContentView()
-                .environmentObject(appSettings)
                 .onAppear {
                     AppState.shared.setup()
                 }
@@ -72,9 +71,8 @@ struct OpenSwiftApp: App {
             }
         }
         
-        MenuBarExtra("OpenSwift", systemImage: "speedometer", isInserted: $appSettings.showInMenuBar) {
-            MenuBarContentView()
-                .environmentObject(appSettings)
+        MenuBarExtra("OpenSwift", systemImage: "speedometer", isInserted: $showMenuBar) {
+            MenuBarContentView(showMenuBar: $showMenuBar)
         }
         .menuBarExtraStyle(.window)
     }

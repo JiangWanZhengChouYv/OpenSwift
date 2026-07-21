@@ -322,3 +322,4 @@ OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的
   - **菜单系统重写**：使用 SwiftUI `Commands`、`CommandMenu` 和 `CommandGroup` 替代 `NSMenu` 手动菜单
   - **退出清理迁移**：使用 `CommandGroup(replacing: .appTermination)` 处理退出时的资源清理，不再依赖 `applicationWillTerminate`
   - **验证**：编译通过，SwiftLint 无违规，GitHub Actions Build 和 SwiftLint 均成功
+- **启动崩溃修复 (2026-07-21)**：SwiftUI 迁移后应用启动立即崩溃，崩溃发生在类型元数据解码阶段，递归调用 `GraphHost.flushTransactions()` 超过 1700 次导致堆栈溢出。根因：`OpenSwiftApp.swift` 中使用 `@StateObject` 持有单例 `AppSettings.shared`，SwiftUI 尝试管理单例生命周期导致冲突；`MenuBarExtra` 的 `isInserted` 绑定到单例的 `@Published` 属性，导致状态变化触发递归更新。修复：将 `@StateObject` 替换为本地 `@State` 变量管理 `showMenuBar` 状态，移除对 `AppSettings` 单例的环境对象依赖，直接通过 `AppSettings.shared` 访问或使用 `@Binding` 传递状态。验证：编译通过，SwiftLint 无违规，应用启动正常。
