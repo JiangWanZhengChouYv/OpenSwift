@@ -90,9 +90,13 @@ OpenSpeedy-Mac/
 
 ## 快速开始
 
-### 通过 HomeBrew 安装（推荐）
+### 通过 HomeBrew Tap 安装（推荐）
 
 ```bash
+# 添加 Tap
+brew tap JiangWanZhengChouYv/OpenSwift
+
+# 安装 GUI 应用
 brew install --cask openswift
 ```
 
