@@ -6,7 +6,8 @@ cask "openswift" do
   name "OpenSwift"
   desc "macOS app accelerator - control process speed via DYLD injection"
   homepage "https://github.com/JiangWanZhengChouYv/OpenSwift"
-  license "MIT"
+
+  depends_on macos: :ventura
 
   app "OpenSwift.app"
 end
