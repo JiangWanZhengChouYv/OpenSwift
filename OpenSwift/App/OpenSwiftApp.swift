@@ -72,26 +72,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ aNotification: Notification) {
             logDebug("Application terminating, cleaning up...", log: .openswift)
             
-            // 1. 先清理 UI 相关资源（状态栏、窗口）
+            // 1. 先清理 UI 相关资源（状态栏、窗口、全局快捷键）
             MenuBarController.shared.shutdown()
             AppLauncherViewModel.shared.shutdown()
+            HotkeyService.shared.unregisterHotkeys()
             
-            // 2. 关闭并释放主窗口
-            if let window = mainWindow {
-                window.delegate = nil
-                window.close()
-                mainWindow = nil
-            }
-            
-            // 3. 清理业务对象的通知观察器
+            // 2. 清理业务对象的通知观察器
             ProcessManagerProvider.shared.manager.shutdown()
             AppLauncher.shared.shutdown()
             
-            // 4. 保存设置
+            // 3. 保存设置
             saveWindowPosition()
             AppSettings.shared.save()
             
-            // 5. 最后清理注入进程和共享内存
+            // 4. 最后清理注入进程和共享内存
             ProcessManagerProvider.shared.manager.cleanupAll()
         }
     
