@@ -73,8 +73,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logDebug("Application terminating, cleaning up...", log: .openswift)
         
         saveWindowPosition()
-        ProcessManagerProvider.shared.manager.cleanupAll()
         AppSettings.shared.save()
+        
+        DispatchQueue.global(qos: .utility).async {
+            ProcessManagerProvider.shared.manager.cleanupAll()
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

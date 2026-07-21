@@ -162,11 +162,18 @@ class ProcessManager: ObservableObject {
     }
 
     func cleanupAll() {
-        injectedProcesses.forEach {
-            _ = ProcessInjector.shared.eject(pid: $0.pid)
-            cleanupSharedMemory(for: $0.pid)
-        }
+        let pids = injectedProcesses.map { $0.pid }
         injectedProcesses.removeAll()
+        
+        pids.forEach { pid in
+            _ = ProcessInjector.shared.eject(pid: pid)
+            cleanupQueue.sync {
+                let controller = self.controllerQueue.sync {
+                    self.speedControllers.removeValue(forKey: pid) ?? SpeedControlManager(pid: pid)
+                }
+                controller.detachAndCleanup()
+            }
+        }
     }
 
     func handleProcessTermination(_ notification: Notification) {

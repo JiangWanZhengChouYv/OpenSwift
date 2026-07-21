@@ -51,6 +51,9 @@ OpenSwift/openswift
 # 临时报告文件
 Fix-Report.md
 
+# 根目录测试工具
+speed_test
+
 # 项目文档 (按需取消注释)
 # 任务板.md
 # Console.md
