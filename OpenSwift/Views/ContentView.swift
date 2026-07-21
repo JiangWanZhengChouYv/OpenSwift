@@ -1,11 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var speedControlState = SpeedControlState.shared
-    @StateObject private var hotkeyService = HotkeyService.shared
-    @StateObject private var appSettings = AppSettings.shared
-    @StateObject private var appLauncherViewModel = AppLauncherViewModel.shared
-    
     @State private var showProcessList: Bool = true
     @State private var showHotkeySettings: Bool = false
     @State private var showMinimizeTip: Bool = false
@@ -15,6 +10,7 @@ struct ContentView: View {
     @State private var showErrorAlert: Bool = false
     @State private var errorAlertMessage: String = ""
     @State private var showAppSelector: Bool = false
+    @State private var appSelectorObserver: NSObjectProtocol?
     
     var body: some View {
         HSplitView {
@@ -23,9 +19,9 @@ struct ContentView: View {
             }
             
             SpeedControlPanel(
-                speedControlState: speedControlState,
+                speedControlState: SpeedControlState.shared,
                 processManager: ProcessManagerProvider.shared.manager,
-                appLauncherViewModel: appLauncherViewModel,
+                appLauncherViewModel: AppLauncherViewModel.shared,
                 selectedTab: $selectedTab
             )
         }
@@ -68,16 +64,16 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showFirstLaunch) {
             FirstLaunchView {
-                appSettings.isFirstLaunch = false
+                AppSettings.shared.isFirstLaunch = false
                 showFirstLaunch = false
             }
         }
         .sheet(isPresented: $showAppSelector) {
             AppSelectorView { url in
                 if url.pathExtension == "app" {
-                    appLauncherViewModel.launchApp(at: url)
+                    AppLauncherViewModel.shared.launchApp(at: url)
                 } else {
-                    appLauncherViewModel.launchExecutable(at: url)
+                    AppLauncherViewModel.shared.launchExecutable(at: url)
                 }
             }
         }
@@ -87,13 +83,13 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if appSettings.isFirstLaunch {
+            if AppSettings.shared.isFirstLaunch {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     showFirstLaunch = true
                 }
             }
             
-            NotificationCenter.default.addObserver(
+            appSelectorObserver = NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("OpenAppSelector"),
                 object: nil,
                 queue: .main
@@ -101,9 +97,15 @@ struct ContentView: View {
                 showAppSelector = true
             }
         }
-        .onChange(of: appLauncherViewModel.showError) { newValue in
+        .onDisappear {
+            if let observer = appSelectorObserver {
+                NotificationCenter.default.removeObserver(observer)
+                appSelectorObserver = nil
+            }
+        }
+        .onChange(of: AppLauncherViewModel.shared.showError) { newValue in
             if newValue {
-                errorAlertMessage = appLauncherViewModel.errorMessage
+                errorAlertMessage = AppLauncherViewModel.shared.errorMessage
                 showErrorAlert = true
             }
         }
@@ -123,7 +125,7 @@ struct ContentView: View {
                 }
             }
             
-            if appLauncherViewModel.showSuccess {
+            if AppLauncherViewModel.shared.showSuccess {
                 VStack {
                     successBanner
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -141,10 +143,10 @@ struct ContentView: View {
     private var hotkeyStatusIndicator: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(hotkeyService.isEnabled ? Color(hex: "34C759") : Color.gray)
+                .fill(HotkeyService.shared.isEnabled ? Color(hex: "34C759") : Color.gray)
                 .frame(width: 6, height: 6)
             
-            Text(hotkeyService.isEnabled ? "快捷键已启用" : "快捷键已禁用")
+            Text(HotkeyService.shared.isEnabled ? "快捷键已启用" : "快捷键已禁用")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
@@ -193,14 +195,14 @@ struct ContentView: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundColor(Color(hex: "34C759"))
             
-            Text(appLauncherViewModel.successMessage)
+            Text(AppLauncherViewModel.shared.successMessage)
                 .font(.system(size: 12, weight: .medium))
             
             Spacer()
             
             Button(action: {
                 withAnimation {
-                    appLauncherViewModel.showSuccess = false
+                    AppLauncherViewModel.shared.showSuccess = false
                 }
             }) {
                 Image(systemName: "xmark")
@@ -245,8 +247,8 @@ struct ContentView: View {
             
             ProcessListView(
                 processManager: ProcessManagerProvider.shared.manager,
-                speedControlState: speedControlState,
-                appLauncherViewModel: appLauncherViewModel
+                speedControlState: SpeedControlState.shared,
+                appLauncherViewModel: AppLauncherViewModel.shared
             )
         }
         .frame(minWidth: 280, maxWidth: 350)
