@@ -45,8 +45,9 @@ class AppLauncherViewModel: ObservableObject {
         logInfo("AppLauncherViewModel setup complete", log: .launcher)
     }
 
-    deinit {
+    func shutdown() {
         timer?.invalidate()
+        timer = nil
     }
 
     func refreshLaunchedProcesses() {

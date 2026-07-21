@@ -114,9 +114,10 @@ class AppLauncher {
         logInfo("AppLauncher setup complete", log: .launcher)
     }
 
-    deinit {
+    func shutdown() {
         if let observer = processObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            processObserver = nil
         }
     }
 

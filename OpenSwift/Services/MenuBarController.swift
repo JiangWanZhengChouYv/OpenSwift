@@ -119,7 +119,8 @@ class MenuBarController: ObservableObject {
         }
     }
     
-    deinit {
+    func shutdown() {
+        hideMenuBarItem()
         NotificationCenter.default.removeObserver(self)
     }
 }

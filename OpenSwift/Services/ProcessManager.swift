@@ -35,8 +35,11 @@ class ProcessManager: ObservableObject {
         loadSavedGroups()
     }
 
-    deinit {
-        if let observer = processObserver { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+    func shutdown() {
+        if let observer = processObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            processObserver = nil
+        }
     }
 
     private func setupBindings() {

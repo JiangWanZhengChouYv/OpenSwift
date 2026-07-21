@@ -70,13 +70,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ aNotification: Notification) {
-        logDebug("Application terminating, cleaning up...", log: .openswift)
-        
-        saveWindowPosition()
-        AppSettings.shared.save()
-        
-        ProcessManagerProvider.shared.manager.cleanupAll()
-    }
+            logDebug("Application terminating, cleaning up...", log: .openswift)
+            
+            // 1. 先清理 UI 相关资源（状态栏、窗口）
+            MenuBarController.shared.shutdown()
+            AppLauncherViewModel.shared.shutdown()
+            
+            // 2. 关闭并释放主窗口
+            if let window = mainWindow {
+                window.delegate = nil
+                window.close()
+                mainWindow = nil
+            }
+            
+            // 3. 清理业务对象的通知观察器
+            ProcessManagerProvider.shared.manager.shutdown()
+            AppLauncher.shared.shutdown()
+            
+            // 4. 保存设置
+            saveWindowPosition()
+            AppSettings.shared.save()
+            
+            // 5. 最后清理注入进程和共享内存
+            ProcessManagerProvider.shared.manager.cleanupAll()
+        }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         // 最小化到托盘时不退出

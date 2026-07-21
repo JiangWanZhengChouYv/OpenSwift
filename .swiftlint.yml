@@ -15,6 +15,7 @@ disabled_rules:
   - unused_optional_binding # 未使用的可选绑定
   - redundant_string_enum_value # 冗余字符串枚举值
   - vertical_whitespace   # 垂直空白
+  - notification_center_detachment  # 允许在 deinit 外移除通知观察器（应用退出时需要显式清理）
 
 opt_in_rules:
   - explicit_init
