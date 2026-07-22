@@ -9,7 +9,8 @@ struct QuickSpeedButtons: View {
         (1.0, "1x"),
         (2.0, "2x"),
         (5.0, "5x"),
-        (10.0, "10x")
+        (10.0, "10x"),
+        (15.0, "15x")
     ]
     
     var body: some View {

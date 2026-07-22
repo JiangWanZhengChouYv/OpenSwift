@@ -9,7 +9,7 @@
 #define SPDM_MAGIC 0x5350444D
 #define SPDM_VERSION 2
 #define MIN_SPEED_RATIO 0.1f
-#define MAX_SPEED_RATIO 10.0f
+#define MAX_SPEED_RATIO 15.0f
 #define DEFAULT_SPEED_RATIO 1.0f
 
 // 共享内存 header - 自然对齐布局（与 Swift 端完全一致）

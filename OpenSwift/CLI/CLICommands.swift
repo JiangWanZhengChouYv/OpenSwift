@@ -15,7 +15,7 @@ enum SharedMemoryLayout {
 
 let sharedMemoryKeyPrefix = "com.openswift.speedpatch."
 let minSpeedRatio: Float = 0.1
-let maxSpeedRatio: Float = 10.0
+let maxSpeedRatio: Float = 15.0
 let defaultSpeedRatio: Float = 1.0
 
 func findDylibPath() -> String? {

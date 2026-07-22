@@ -31,7 +31,7 @@ class SpeedControlManager {
     private var sharedMemoryFD: Int32 = -1
 
     private let minSpeedRatio: Float = 0.1
-    private let maxSpeedRatio: Float = 10.0
+    private let maxSpeedRatio: Float = 15.0
     private let defaultSpeedRatio: Float = 1.0
 
     private let ioQueue: DispatchQueue

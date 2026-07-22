@@ -58,7 +58,7 @@ static mach_timebase_info_data_t g_timebase_info;
 static const uint32_t CURRENT_VERSION = SPDM_VERSION;
 static const uint32_t MAGIC_NUMBER = SPDM_MAGIC;
 static const float MIN_SPEED_RATIO = 0.1f;
-static const float MAX_SPEED_RATIO = 10.0f;
+static const float MAX_SPEED_RATIO = 15.0f;
 static const float DEFAULT_SPEED_RATIO = 1.0f;
 
 // 时间函数 Hook 的基准时间值（由 speedpatch_init_time_base 初始化）
