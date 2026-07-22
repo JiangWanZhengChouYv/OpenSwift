@@ -36,16 +36,16 @@ A macOS process speed control tool that intercepts time functions of target proc
 
 ## Comparison
 
-| Feature | OpenSwift | Cheat Engine | Speed Hack |
-|---------|-----------|--------------|------------|
-| Platform | macOS | Windows | Windows |
-| Open Source | ✅ | ✅ | ❌ |
-| Native SwiftUI UI | ✅ | ❌ | ❌ |
-| Global Hotkeys | ✅ | ✅ | ❌ |
-| Multi-process | ✅ | ✅ | ❌ |
-| Menu Bar | ✅ | ❌ | ❌ |
-| CLI Tool | ✅ | ❌ | ❌ |
-| Inject Running Process | ❌ (launch-time only) | ✅ | ✅ |
+| Feature | OpenSwift | OpenSpeedy | Cheat Engine | Speed Hack |
+|---------|-----------|------------|--------------|------------|
+| Platform | macOS | Windows | Windows | Windows |
+| Open Source | ✅ | ✅ | ✅ | ❌ |
+| Native SwiftUI UI | ✅ | ❌ | ❌ | ❌ |
+| Global Hotkeys | ✅ | ✅ | ✅ | ❌ |
+| Multi-process | ✅ | ✅ | ✅ | ❌ |
+| Menu Bar | ✅ | ❌ | ❌ | ❌ |
+| CLI Tool | ✅ | ❌ | ❌ | ❌ |
+| Inject Running Process | ❌ (launch-time only) | ✅ | ✅ | ✅ |
 
 ---
 
