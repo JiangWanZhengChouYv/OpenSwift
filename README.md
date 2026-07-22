@@ -94,7 +94,7 @@ OpenSpeedy-Mac/
 
 ```bash
 # 添加 Tap
-brew tap JiangWanZhengChouYv/OpenSwift
+brew tap JiangWanZhengChouYv/openswift https://github.com/JiangWanZhengChouYv/OpenSwift
 
 # 安装 GUI 应用
 brew install --cask openswift
