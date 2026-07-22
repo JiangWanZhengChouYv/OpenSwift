@@ -328,3 +328,12 @@ OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的
   - **Cask**: `Casks/openswift.rb` - 安装 GUI 应用到 `/Applications/OpenSwift.app`
   - **README 更新**: 添加 HomeBrew 安装说明（Tap、CLI、Cask 命令）
   - **使用方式**: `brew tap JiangWanZhengChouYv/OpenSwift && brew install openswift && brew install --cask openswift`
+- **HomeBrew Cask 提交 (2026-07-21)**：提交 PR 到官方 homebrew-cask 仓库：
+  - **移除 Formula**: 删除 `Formula/openswift.rb`（CLI 由应用自动安装）
+  - **Cask 更新**: 添加 `license "MIT"` 字段以符合官方规范
+  - **README 简化**: 仅保留 `brew install --cask openswift` 安装方式
+  - **PR**: https://github.com/Homebrew/homebrew-cask/pull/276238
+- **HomeBrew Tap 安装方式 (2026-07-21)**：因官方 Cask 需要代码签名和仓库知名度，改为使用 Tap 方式：
+  - **安装方式**: `brew tap JiangWanZhengChouYv/openswift https://github.com/JiangWanZhengChouYv/OpenSwift && brew trust jiangwanzhengchouyv/openswift && brew install --cask openswift`
+  - **更新 README**: 添加 Tap 安装说明，使用完整 URL 方式 tap（因仓库名非 homebrew-xxx 格式），包含 trust 步骤和 xattr 隔离属性移除说明
+  - **官方 Cask**: 等待项目积累足够 stars（>225）和代码签名后重新提交

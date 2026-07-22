@@ -96,11 +96,22 @@ OpenSpeedy-Mac/
 # 添加 Tap
 brew tap JiangWanZhengChouYv/openswift https://github.com/JiangWanZhengChouYv/OpenSwift
 
+# 信任 Tap（第三方 Tap 需要手动信任）
+brew trust jiangwanzhengchouyv/openswift
+
 # 安装 GUI 应用
 brew install --cask openswift
 ```
 
 > 应用启动时会自动安装 `openswift` CLI 工具到系统路径。
+
+**首次打开提示"已损坏"？** 执行以下命令移除隔离属性：
+
+```bash
+xattr -d com.apple.quarantine /Applications/OpenSwift.app
+```
+
+或右键点击应用 → 选择"打开"。
 
 ### 手动安装
 
