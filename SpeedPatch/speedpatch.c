@@ -277,6 +277,16 @@ static uint64_t hooked_mach_absolute_time(void) {
         return current_time;
     }
 
+    if (state_changed) {
+        double d_ratio = (double)ratio;
+        double d_current_time = (double)current_time;
+        double d_last_returned = (double)g_last_returned_mach_time;
+        double d_new_base = (d_current_time * d_ratio - d_last_returned - 1.0) / (d_ratio - 1.0);
+        g_base_mach_absolute_time = (uint64_t)d_new_base;
+        g_last_known_ratio = ratio;
+        g_last_known_active = active;
+    }
+
     uint64_t base = g_base_mach_absolute_time;
     uint64_t result;
 
@@ -290,12 +300,6 @@ static uint64_t hooked_mach_absolute_time(void) {
 
     if (result <= g_last_returned_mach_time) {
         result = g_last_returned_mach_time + 1;
-    }
-
-    if (state_changed) {
-        g_base_mach_absolute_time = current_time;
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
     }
 
     g_last_returned_mach_time = result;
