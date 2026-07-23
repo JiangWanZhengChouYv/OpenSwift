@@ -71,6 +71,10 @@ static bool     g_time_base_initialized = false;
 static uint64_t g_last_returned_mach_time = 0;
 static int64_t  g_last_clock_ns = INT64_MIN;
 
+// 时间偏移量：从加速状态切到 1x 或关闭时保持时间连续
+static int64_t g_mach_time_offset = 0;
+static int64_t g_clock_time_offset_ns = 0;
+
 // 记录上一次的 ratio 和 active 状态，用于检测倍率变化并重置基准
 static float g_last_known_ratio = 1.0f;
 static bool  g_last_known_active = false;
@@ -264,17 +268,31 @@ static uint64_t hooked_mach_absolute_time(void) {
     bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
 
     if (!active) {
-        g_last_returned_mach_time = current_time;
+        if (state_changed) {
+            g_mach_time_offset = (int64_t)g_last_returned_mach_time - (int64_t)current_time;
+        }
+        uint64_t result = current_time + (uint64_t)g_mach_time_offset;
+        if (result <= g_last_returned_mach_time) {
+            result = g_last_returned_mach_time + 1;
+        }
+        g_last_returned_mach_time = result;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
-        return current_time;
+        return result;
     }
 
     if (ratio <= 0.0f || ratio == 1.0f) {
-        g_last_returned_mach_time = current_time;
+        if (state_changed) {
+            g_mach_time_offset = (int64_t)g_last_returned_mach_time - (int64_t)current_time;
+        }
+        uint64_t result = current_time + (uint64_t)g_mach_time_offset;
+        if (result <= g_last_returned_mach_time) {
+            result = g_last_returned_mach_time + 1;
+        }
+        g_last_returned_mach_time = result;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
-        return current_time;
+        return result;
     }
 
     if (state_changed) {
@@ -327,16 +345,62 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
 
     if (!active) {
-        g_last_clock_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        if (state_changed) {
+            g_clock_time_offset_ns = g_last_clock_ns - current_real_ns;
+        }
+        int64_t new_total_ns = current_real_ns + g_clock_time_offset_ns;
+        if (new_total_ns <= g_last_clock_ns) {
+            new_total_ns = g_last_clock_ns + 1;
+        }
+        g_last_clock_ns = new_total_ns;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
+
+        int64_t out_sec  = new_total_ns / 1000000000LL;
+        long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
+
+        if (out_nsec < 0) {
+            out_nsec += 1000000000L;
+            out_sec  -= 1;
+        } else if (out_nsec >= 1000000000L) {
+            out_nsec -= 1000000000L;
+            out_sec  += 1;
+        }
+
+        tp->tv_sec  = (time_t)out_sec;
+        tp->tv_nsec = out_nsec;
+
         return result;
     }
 
     if (ratio <= 0.0f || ratio == 1.0f) {
-        g_last_clock_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
+        if (state_changed) {
+            g_clock_time_offset_ns = g_last_clock_ns - current_real_ns;
+        }
+        int64_t new_total_ns = current_real_ns + g_clock_time_offset_ns;
+        if (new_total_ns <= g_last_clock_ns) {
+            new_total_ns = g_last_clock_ns + 1;
+        }
+        g_last_clock_ns = new_total_ns;
         g_last_known_ratio = ratio;
         g_last_known_active = active;
+
+        int64_t out_sec  = new_total_ns / 1000000000LL;
+        long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
+
+        if (out_nsec < 0) {
+            out_nsec += 1000000000L;
+            out_sec  -= 1;
+        } else if (out_nsec >= 1000000000L) {
+            out_nsec -= 1000000000L;
+            out_sec  += 1;
+        }
+
+        tp->tv_sec  = (time_t)out_sec;
+        tp->tv_nsec = out_nsec;
+
         return result;
     }
 
