@@ -308,13 +308,9 @@ static uint64_t hooked_mach_absolute_time(void) {
     uint64_t base = g_base_mach_absolute_time;
     uint64_t result;
 
-    if (current_time <= base) {
-        result = current_time;
-    } else {
-        uint64_t delta = current_time - base;
-        uint64_t scaled_delta = (uint64_t)((double)delta * (double)ratio);
-        result = base + scaled_delta;
-    }
+    int64_t delta = (int64_t)current_time - (int64_t)base;
+    double scaled_delta = (double)delta * (double)ratio;
+    result = (uint64_t)((double)base + scaled_delta);
 
     if (result <= g_last_returned_mach_time) {
         result = g_last_returned_mach_time + 1;
@@ -422,10 +418,6 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
         (int64_t)g_base_clock_gettime_sec * 1000000000LL +
         (int64_t)g_base_clock_gettime_nsec;
     int64_t delta_total_ns = current_real_ns - base_total_ns;
-
-    if (delta_total_ns < 0) {
-        return result;
-    }
 
     int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
     int64_t new_total_ns = base_total_ns + adjusted_ns;
