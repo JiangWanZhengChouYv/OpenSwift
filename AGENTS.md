@@ -337,3 +337,28 @@ OpenSwift.app 启动时会自动安装/更新 `openswift` CLI 到系统可写的
   - **安装方式**: `brew tap JiangWanZhengChouYv/openswift https://github.com/JiangWanZhengChouYv/OpenSwift && brew trust jiangwanzhengchouyv/openswift && brew install --cask openswift`
   - **更新 README**: 添加 Tap 安装说明，使用完整 URL 方式 tap（因仓库名非 homebrew-xxx 格式），包含 trust 步骤和 xattr 隔离属性移除说明
   - **官方 Cask**: 等待项目积累足够 stars（>225）和代码签名后重新提交
+- **项目提升与推广 (2026-07-22)**：完善项目文档和制定零预算推广策略：
+  - **README 优化**: 添加 7 个项目徽章（Build、SwiftLint、Release、License、Platform、Swift、Stars）
+  - **使用场景**: 添加 5 个典型使用场景（游戏加速、软件测试、动画调试、逆向分析、计时测试）
+  - **同类工具对比**: 添加与 Cheat Engine、Speed Hack 的对比表格
+  - **FAQ**: 添加 7 个常见问题及解答
+  - **Roadmap**: 制定短期/中期/长期路线图，包含 12 个待实现功能
+  - **推广策略**: 创建 PROMOTION.md，包含 10+ 推广渠道、3 个内容方向、各平台文案草稿、4 阶段推广计划
+  - **SwiftLint**: 46 个文件零违规
+- **v0.1.1 发布 (2026-07-22)**：
+  - **添加 15x 加速选项**：UI 快捷按钮和 CLI 均支持 15x 加速，MAX_SPEED_RATIO 从 10.0 提升到 15.0
+  - **修复版本号显示**：关于页面版本号从硬编码 "1.0" 改为正确读取 Info.plist
+  - **OpenSpeedy Hook 函数对比分析**：分析 Windows 版 OpenSpeedy 的 14 个时间函数 Hook，对比得出 OpenSwift 已覆盖 macOS 核心时间函数，无需新增 Hook
+  - **HomeBrew 更新**：Cask 版本更新到 0.1.1，SHA256 同步更新
+- **速度切换平滑过渡修复 (2026-07-23)**：
+  - **问题根因**：`hooked_mach_absolute_time` 切换速度时简单重置 base（`g_base_mach_absolute_time = current_time`），导致高速切低速时时间大幅回退/跳变；而 `hooked_clock_gettime` 已有平滑过渡算法
+  - **修复方案**：给 `mach_absolute_time` 添加与 `clock_gettime` 一致的平滑过渡算法：`base_new = (T_real * ratio - T_last) / (ratio - 1)`，确保切换瞬间时间连续
+  - **影响**：修复了 10x -> 1x 等高速切低速时差明显的问题，所有倍率切换（0.5x ~ 15x）均平滑过渡
+- **1x/关闭切换时间跳变修复 (2026-07-23)**：
+  - **问题根因**：从高速切到 1x 或关闭时，`ratio == 1.0` 和 `!active` 分支直接返回真实时间，加速后的时间远大于真实时间，导致时间突然"掉落"，跳变明显
+  - **修复方案**：引入时间偏移量（time offset）机制。切到 1x 或关闭时，计算 `offset = last_fast_time - real_time`，返回 `real_time + offset`，保持时间曲线连续
+  - **影响**：所有切换场景（0.5x ↔ 1x ↔ 10x ↔ 15x ↔ 关闭）时间均连续无跳变
+- **0.5x 减速跳变修复 (2026-07-23)**：
+  - **问题根因**：`current_time <= base` 和 `delta_total_ns < 0` 保护分支在 ratio < 1.0 时误触发。减速时 base 在真实时间之后，保护分支导致跳过缩放公式直接返回原始值 + 单调性 +1，减速实际表现为 1x
+  - **修复方案**：删除这两个保护分支，让缩放公式始终执行。单调性保护单独承担防回退职责
+  - **影响**：0.5x 减速正常工作，所有倍率切换（0.5x ~ 15x）双向均平滑

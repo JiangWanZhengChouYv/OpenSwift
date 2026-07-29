@@ -1,6 +1,6 @@
 cask "openswift" do
-  version "0.1.1"
-  sha256 "4898ed2f87027946acdc3decea74acf822950e30c051db0c3e8ba622b05bc341"
+  version "1.0.0"
+  sha256 "412c8ad13e80c8eca56d3c8ca5cdfd2302d512e0c01586dc35b61e21088c7ad2"
 
   url "https://github.com/JiangWanZhengChouYv/OpenSwift/releases/download/v#{version}/OpenSwift-v#{version}.zip"
   name "OpenSwift"
