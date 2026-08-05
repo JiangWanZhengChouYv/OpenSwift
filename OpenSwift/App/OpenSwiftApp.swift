@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 @main
 struct OpenSwiftApp: App {
@@ -48,6 +49,13 @@ struct OpenSwiftApp: App {
                 
                 Button("全选") { }
                 .keyboardShortcut("a", modifiers: .command)
+            }
+            
+            CommandMenu("工具") {
+                Button("静态打包应用...") {
+                    AppState.shared.staticPatchFlowFromMenu()
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
             
             CommandGroup(after: .appInfo) {
@@ -111,5 +119,66 @@ class AppState {
         AppSettings.shared.shutdown()
         CLIManager.shared.shutdown()
         ProcessManagerProvider.shared.manager.cleanupAll()
+    }
+    
+    func staticPatchFlowFromMenu() {
+        DispatchQueue.main.async {
+            let openPanel = NSOpenPanel()
+            openPanel.canChooseDirectories = false
+            openPanel.canChooseFiles = true
+            openPanel.allowedContentTypes = [.applicationBundle]
+            openPanel.allowsOtherFileTypes = true
+            openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
+            openPanel.title = "选择要打包的应用"
+            guard openPanel.runModal() == .OK, let sourceURL = openPanel.url else { return }
+            let defaultName = sourceURL.deletingPathExtension().lastPathComponent + "_Patched"
+            let savePanel = NSSavePanel()
+            savePanel.title = "保存打包后的应用"
+            savePanel.nameFieldStringValue = defaultName
+            savePanel.canCreateDirectories = true
+            savePanel.allowedContentTypes = [.applicationBundle]
+            savePanel.directoryURL = sourceURL.deletingLastPathComponent()
+            guard savePanel.runModal() == .OK, let outputURL = savePanel.url else { return }
+            let alert = NSAlert()
+            alert.messageText = "正在打包..."
+            alert.informativeText = sourceURL.lastPathComponent + " → " + outputURL.lastPathComponent
+            alert.addButton(withTitle: "取消")
+            let progress = NSProgressIndicator(frame: NSRect(x: 20, y: 20, width: 200, height: 20))
+            progress.style = .spinning
+            progress.startAnimation(nil)
+            alert.accessoryView = progress
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let result = try StaticPatchService.shared.patchApp(
+                        at: sourceURL, outputURL: outputURL, overwrite: true
+                    )
+                    DispatchQueue.main.async { self.showStaticPatchSuccess(alert: alert, result: result) }
+                } catch {
+                    DispatchQueue.main.async { self.showStaticPatchFailure(alert: alert, error: error) }
+                }
+            }
+            _ = alert.runModal()
+        }
+    }
+
+    private func showStaticPatchSuccess(alert: NSAlert, result: URL) {
+        alert.window.close()
+        let ok = NSAlert()
+        ok.messageText = "打包成功"
+        ok.informativeText = "已生成：\(result.path)"
+        ok.addButton(withTitle: "在 Finder 中显示")
+        ok.addButton(withTitle: "关闭")
+        if ok.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.activateFileViewerSelecting([result])
+        }
+    }
+
+    private func showStaticPatchFailure(alert: NSAlert, error: Error) {
+        alert.window.close()
+        let fail = NSAlert()
+        fail.messageText = "打包失败"
+        fail.informativeText = error.localizedDescription
+        fail.addButton(withTitle: "关闭")
+        fail.runModal()
     }
 }

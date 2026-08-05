@@ -20,6 +20,7 @@ class AppLauncherViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
+    private var detectTimer: Timer?
     private var isSetup: Bool = false
     private let stateQueue = DispatchQueue(label: "com.openswift.applaunchervm.state", qos: .userInitiated)
 
@@ -34,11 +35,14 @@ class AppLauncherViewModel: ObservableObject {
         isSetup = true
 
         refreshLaunchedProcesses()
+        detectInjectedProcesses()
 
-        // Timer 在主线程创建
         DispatchQueue.main.async { [weak self] in
             self?.timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
                 self?.refreshLaunchedProcesses()
+            }
+            self?.detectTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+                self?.detectInjectedProcesses()
             }
         }
 
@@ -48,6 +52,8 @@ class AppLauncherViewModel: ObservableObject {
     func shutdown() {
         timer?.invalidate()
         timer = nil
+        detectTimer?.invalidate()
+        detectTimer = nil
     }
 
     func refreshLaunchedProcesses() {
@@ -78,6 +84,63 @@ class AppLauncherViewModel: ObservableObject {
                     self.selectedLaunchedProcess = nil
                     SpeedControlState.shared.currentController = nil
                 }
+            }
+        }
+    }
+
+    private func detectInjectedProcesses() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            let detected = DetectInjectedProcessesService.shared.scanAllUserProcesses()
+            DispatchQueue.main.async {
+                self.mergeDetectedProcesses(detected)
+            }
+        }
+    }
+
+    private func mergeDetectedProcesses(_ detected: [pid_t: InjectedProcessMeta]) {
+        let existing = self.launchedProcesses
+        var result: [LaunchedProcess] = []
+
+        for old in existing {
+            var updated = old
+            if let meta = detected[old.pid] {
+                updated.isRunning = true
+                updated.isSharedMemoryConnected = true
+                updated.currentSpeed = Double(meta.speedRatio)
+                updated.isSpeedControlEnabled = meta.isActive
+                result.append(updated)
+            } else {
+                if old.launchMethod == .staticInjected {
+                    updated.isRunning = false
+                }
+                result.append(updated)
+            }
+        }
+
+        let existingPIDs = Set(existing.map(\.pid))
+        for (pid, meta) in detected where !existingPIDs.contains(pid) {
+            let newProcess = LaunchedProcess(
+                pid: pid,
+                appURL: meta.appURL,
+                appName: meta.appName,
+                launchedAt: Date(),
+                isRunning: true,
+                currentSpeed: Double(meta.speedRatio),
+                isSpeedControlEnabled: meta.isActive,
+                isSharedMemoryConnected: true,
+                launchMethod: .staticInjected
+            )
+            result.append(newProcess)
+        }
+
+        self.launchedProcesses = result
+
+        if let selected = self.selectedLaunchedProcess {
+            if let updatedSelected = result.first(where: { $0.id == selected.id }) {
+                self.selectedLaunchedProcess = updatedSelected
+            } else if let updatedByPID = result.first(where: { $0.pid == selected.pid }) {
+                self.selectedLaunchedProcess = updatedByPID
             }
         }
     }

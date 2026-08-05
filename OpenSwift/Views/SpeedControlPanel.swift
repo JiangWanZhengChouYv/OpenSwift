@@ -153,9 +153,12 @@ extension SpeedControlPanel {
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
             
-            Label("DYLD 注入", systemImage: "cube.box.fill")
-                .font(.system(size: 12))
-                .foregroundColor(.accentColor)
+            Label(
+                process.launchMethod == .dyld ? "DYLD 注入" : "静态注入",
+                systemImage: process.launchMethod == .dyld ? "cube.box.fill" : "square.stack.3d.down.right.fill"
+            )
+            .font(.system(size: 12))
+            .foregroundColor(process.launchMethod == .dyld ? .accentColor : Color(hex: "AF52DE"))
             
             if process.isSharedMemoryConnected {
                 Label("已连接", systemImage: "checkmark.circle.fill")

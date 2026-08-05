@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import SwiftUI
 import AppKit
 
@@ -14,6 +15,7 @@ struct LaunchedProcessCard: View {
     @State private var isHovering = false
     @State private var currentSpeed: Double = 1.0
     @State private var isSpeedControlEnabled: Bool = false
+    @State private var pulseAnimating = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -157,6 +159,8 @@ struct LaunchedProcessCard: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
+                .scaleEffect(process.isRunning && pulseAnimating ? 1.0 : (process.isRunning ? 0.7 : 1.0))
+                .opacity(process.isRunning && pulseAnimating ? 1.0 : (process.isRunning ? 0.5 : 1.0))
             
             Text(process.isRunning ? "运行中" : "已停止")
                 .font(.system(size: 9, weight: .medium))
@@ -168,23 +172,45 @@ struct LaunchedProcessCard: View {
             Capsule()
                 .fill(statusColor.opacity(0.1))
         )
+        .onAppear {
+            if process.isRunning {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    pulseAnimating = true
+                }
+            }
+        }
+        .onDisappear {
+            pulseAnimating = false
+        }
+        .onChange(of: process.isRunning) { newValue in
+            if newValue {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    pulseAnimating = true
+                }
+            } else {
+                pulseAnimating = false
+            }
+        }
     }
     
     private var launchMethodBadge: some View {
         HStack(spacing: 4) {
-            Image(systemName: "cube.box.fill")
+            Image(systemName: process.launchMethod == .dyld ? "cube.box.fill" : "square.stack.3d.down.right.fill")
                 .font(.system(size: 8))
             
-            Text("DYLD")
+            Text(process.launchMethod == .dyld ? "DYLD" : "STATIC")
                 .font(.system(size: 9, weight: .medium))
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(Color.accentColor.opacity(0.15))
+                .fill((process.launchMethod == .dyld ? Color.accentColor : Color(hex: "AF52DE")).opacity(0.15))
         )
-        .foregroundColor(.accentColor)
+        .foregroundColor(process.launchMethod == .dyld ? .accentColor : Color(hex: "AF52DE"))
+        .help(process.launchMethod == .dyld
+            ? "通过 OpenSwift DYLD 注入方式启动（每次启动都需要 OpenSwift）"
+            : "静态注入打包版，双击应用自动加载 SpeedPatch，无需 OpenSwift 启动")
     }
     
     private var sharedMemoryBadge: some View {
@@ -229,70 +255,85 @@ struct LaunchedProcessCard: View {
                     Text("应用路径")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
-                    
+
                     Spacer()
                 }
-                
+
                 Text(process.appURL.path)
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
-            
+
             if process.isSharedMemoryConnected {
                 Divider()
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("速度控制")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Toggle("", isOn: Binding(
-                            get: { isSpeedControlEnabled },
-                            set: { newValue in
-                                isSpeedControlEnabled = newValue
-                                appLauncherViewModel.toggleSpeedControl(newValue, for: process)
-                            }
-                        ))
-                        .toggleStyle(SwitchToggleStyle())
-                        .labelsHidden()
-                        .scaleEffect(0.8)
-                    }
-                    
-                    VStack(spacing: 6) {
-                        HStack {
-                            Text("速度")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            Text("\(String(format: "%.1f", currentSpeed))x")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(speedColor)
-                        }
-                        
-                        Slider(
-                            value: Binding(
-                                get: { currentSpeed },
-                                set: { newValue in
-                                    currentSpeed = newValue
-                                    appLauncherViewModel.updateSpeed(newValue, for: process)
-                                }
-                            ),
-                            in: 0.1...10.0,
-                            step: 0.1
-                        )
-                        .disabled(!isSpeedControlEnabled)
-                    }
-                }
+                SpeedControlSection(
+                    process: process,
+                    appLauncherViewModel: appLauncherViewModel,
+                    currentSpeed: $currentSpeed,
+                    isSpeedControlEnabled: $isSpeedControlEnabled
+                )
             }
         }
     }
-    
+}
+
+private struct SpeedControlSection: View {
+    let process: LaunchedProcess
+    let appLauncherViewModel: AppLauncherViewModel
+    @Binding var currentSpeed: Double
+    @Binding var isSpeedControlEnabled: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("速度控制")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { isSpeedControlEnabled },
+                    set: { newValue in
+                        isSpeedControlEnabled = newValue
+                        appLauncherViewModel.toggleSpeedControl(newValue, for: process)
+                    }
+                ))
+                .toggleStyle(SwitchToggleStyle())
+                .labelsHidden()
+                .scaleEffect(0.8)
+            }
+
+            VStack(spacing: 6) {
+                HStack {
+                    Text("速度")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Text("\(String(format: "%.1f", currentSpeed))x")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(speedColor)
+                }
+
+                Slider(
+                    value: Binding(
+                        get: { currentSpeed },
+                        set: { newValue in
+                            currentSpeed = newValue
+                            appLauncherViewModel.updateSpeed(newValue, for: process)
+                        }
+                    ),
+                    in: 0.1...10.0,
+                    step: 0.1
+                )
+                .disabled(!isSpeedControlEnabled)
+            }
+        }
+    }
+
     private var speedColor: Color {
         if currentSpeed < 0.9 {
             return Color(hex: "007AFF")
@@ -302,19 +343,21 @@ struct LaunchedProcessCard: View {
             return Color(hex: "34C759")
         }
     }
-    
+}
+
+extension LaunchedProcessCard {
     private var terminatedBanner: some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
                 .foregroundColor(.orange)
-            
+
             Text("此进程已停止")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.orange)
-            
+
             Spacer()
-            
+
             Button(action: {
                 onRemove(process)
             }) {
@@ -331,7 +374,7 @@ struct LaunchedProcessCard: View {
                 .fill(Color.orange.opacity(0.1))
         )
     }
-    
+
     private func getAppIcon(for url: URL) -> NSImage? {
         return NSWorkspace.shared.icon(forFile: url.path)
     }
@@ -350,7 +393,8 @@ struct LaunchedProcessCard_Previews: PreviewProvider {
                 isRunning: true,
                 currentSpeed: 1.0,
                 isSpeedControlEnabled: false,
-                isSharedMemoryConnected: true
+                isSharedMemoryConnected: true,
+                launchMethod: .dyld
             ),
             appLauncherViewModel: AppLauncherViewModel.shared,
             onTerminate: { _ in },

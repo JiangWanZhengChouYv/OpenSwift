@@ -27,6 +27,11 @@ enum AppLauncherError: Error, LocalizedError {
     }
 }
 
+public enum LaunchMethod: String, Codable, Equatable {
+    case dyld = "DYLD"
+    case staticInjected = "STATIC"
+}
+
 struct LaunchedProcess: Identifiable, Equatable {
     let id: UUID
     let pid: pid_t
@@ -37,6 +42,7 @@ struct LaunchedProcess: Identifiable, Equatable {
     var currentSpeed: Double
     var isSpeedControlEnabled: Bool
     var isSharedMemoryConnected: Bool
+    var launchMethod: LaunchMethod
     /// 与目标进程一一对应的 SpeedControlManager。由 AppLauncher 在创建进程时
     /// 初始化（lazy attach），不与其他进程共享上下文。
     var speedController: SpeedControlManager
@@ -51,6 +57,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         currentSpeed: Double = 1.0,
         isSpeedControlEnabled: Bool = false,
         isSharedMemoryConnected: Bool = false,
+        launchMethod: LaunchMethod = .dyld,
         speedController: SpeedControlManager? = nil
     ) {
         self.id = id
@@ -62,6 +69,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         self.currentSpeed = currentSpeed
         self.isSpeedControlEnabled = isSpeedControlEnabled
         self.isSharedMemoryConnected = isSharedMemoryConnected
+        self.launchMethod = launchMethod
         self.speedController = speedController ?? SpeedControlManager(pid: pid)
     }
 
@@ -206,7 +214,8 @@ class AppLauncher {
             let process = LaunchedProcess(
                 pid: launchedPID,
                 appURL: url,
-                appName: appName
+                appName: appName,
+                launchMethod: .dyld
             )
 
             launchedProcesses.append(process)
@@ -264,7 +273,8 @@ class AppLauncher {
                 let launchedProcess = LaunchedProcess(
                     pid: launchedPID,
                     appURL: url,
-                    appName: appName
+                    appName: appName,
+                    launchMethod: .dyld
                 )
 
                 launchedProcesses.append(launchedProcess)

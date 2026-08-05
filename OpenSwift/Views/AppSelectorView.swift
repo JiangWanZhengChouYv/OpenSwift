@@ -5,27 +5,26 @@ struct AppSelectorView: View {
     @StateObject private var viewModel = AppSelectorViewModel()
     @Environment(\.presentationMode) var presentationMode
     let onSelectApp: (URL) -> Void
-    
+    @State private var isPatching = false
+    @State private var patchSuccessURL: URL?
+    @State private var patchErrorMessage: String = ""
+    @State private var showPatchError = false
+    @State private var showPatchSuccess = false
+
     var body: some View {
         VStack(spacing: 0) {
             headerSection
-            
             Divider()
-            
             searchSection
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-            
             Divider()
-            
             if viewModel.isLoading {
                 loadingView
             } else {
                 appListSection
             }
-            
             Divider()
-            
             bottomSection
         }
         .frame(width: 700, height: 500)
@@ -36,13 +35,35 @@ struct AppSelectorView: View {
             ErrorAlertView(
                 title: "启动失败",
                 message: viewModel.errorMessage,
-                onDismiss: {
-                    viewModel.showError = false
-                }
+                onDismiss: { viewModel.showError = false }
             )
         }
+        .alert("打包成功", isPresented: Binding(
+            get: { showPatchSuccess },
+            set: { showPatchSuccess = $0 }
+        )) {
+            Button("在 Finder 中显示") {
+                if let url = patchSuccessURL {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+                showPatchSuccess = false
+            }
+            Button("关闭", role: .cancel) { showPatchSuccess = false }
+        } message: {
+            if let url = patchSuccessURL {
+                Text("已成功生成：\(url.lastPathComponent)\n可直接双击运行，OpenSwift 启动后会自动感应。")
+            }
+        }
+        .alert("打包失败", isPresented: Binding(
+            get: { showPatchError },
+            set: { showPatchError = $0 }
+        )) {
+            Button("确定", role: .cancel) { showPatchError = false }
+        } message: {
+            Text(patchErrorMessage)
+        }
     }
-    
+
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -52,12 +73,8 @@ struct AppSelectorView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
-            
             Spacer()
-            
-            Button(action: {
-                close()
-            }) {
+            Button(action: close) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 24))
                     .foregroundColor(.secondary)
@@ -67,20 +84,16 @@ struct AppSelectorView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
-    
+
     private var searchSection: some View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
-            
             TextField("搜索应用名称或 Bundle ID...", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
-            
             if !viewModel.searchText.isEmpty {
-                Button(action: {
-                    viewModel.searchText = ""
-                }) {
+                Button(action: { viewModel.searchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
@@ -93,7 +106,7 @@ struct AppSelectorView: View {
         .background(Color(NSColor.textBackgroundColor))
         .cornerRadius(8)
     }
-    
+
     private var loadingView: some View {
         VStack {
             Spacer()
@@ -106,7 +119,7 @@ struct AppSelectorView: View {
             Spacer()
         }
     }
-    
+
     private var appListSection: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -117,17 +130,11 @@ struct AppSelectorView: View {
                         AppRowView(
                             app: app,
                             isSelected: viewModel.selectedApp?.id == app.id,
-                            onSelect: {
-                                viewModel.selectedApp = app
-                            },
-                            onLaunch: {
-                                launchApp(app)
-                            }
+                            onSelect: { viewModel.selectedApp = app },
+                            onLaunch: { launchApp(app) }
                         )
-                        
                         if app.id != viewModel.filteredApps.last?.id {
-                            Divider()
-                                .padding(.leading, 72)
+                            Divider().padding(.leading, 72)
                         }
                     }
                 }
@@ -135,36 +142,41 @@ struct AppSelectorView: View {
             .padding(.vertical, 4)
         }
     }
-    
+
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            Spacer()
-                .frame(height: 60)
-            
+            Spacer().frame(height: 60)
             Image(systemName: "app.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
-            
             Text(viewModel.searchText.isEmpty ? "未找到应用" : "未找到匹配 \"\(viewModel.searchText)\" 的应用")
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
-            
             if !viewModel.searchText.isEmpty {
-                Button("清除搜索") {
-                    viewModel.searchText = ""
-                }
-                .buttonStyle(.link)
+                Button("清除搜索") { viewModel.searchText = "" }
+                    .buttonStyle(.link)
             }
-            
             Spacer()
         }
     }
-    
+
     private var bottomSection: some View {
         HStack(spacing: 12) {
-            Button(action: {
-                openCustomApp()
-            }) {
+            Button(action: startStaticPatchFlow) {
+                HStack(spacing: 4) {
+                    if isPatching {
+                        ProgressView().controlSize(.small)
+                        Text("打包中...")
+                    } else {
+                        Image(systemName: "square.stack.3d.down.right.fill")
+                        Text("静态注入打包...")
+                    }
+                }
+                .font(.system(size: 13))
+            }
+            .buttonStyle(.bordered)
+            .disabled(isPatching)
+            Button(action: openCustomApp) {
                 HStack(spacing: 4) {
                     Image(systemName: "folder")
                     Text("选择其他应用...")
@@ -172,22 +184,15 @@ struct AppSelectorView: View {
                 .font(.system(size: 13))
             }
             .buttonStyle(.bordered)
-            
             Spacer()
-            
-            Button(action: {
-                close()
-            }) {
+            Button(action: close) {
                 Text("取消")
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.bordered)
             .keyboardShortcut(.cancelAction)
-            
             Button(action: {
-                if let app = viewModel.selectedApp {
-                    launchApp(app)
-                }
+                if let app = viewModel.selectedApp { launchApp(app) }
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "play.fill")
@@ -204,16 +209,16 @@ struct AppSelectorView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }
-    
+
     private func close() {
         presentationMode.wrappedValue.dismiss()
     }
-    
+
     private func launchApp(_ app: AppInfo) {
         onSelectApp(app.url)
         close()
     }
-    
+
     private func openCustomApp() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = false
@@ -223,10 +228,48 @@ struct AppSelectorView: View {
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.title = "选择应用或可执行文件"
         panel.message = "选择要启动并加速的应用（.app）或可执行文件"
-        
         if panel.runModal() == .OK, let url = panel.url {
             onSelectApp(url)
             close()
+        }
+    }
+
+    private func startStaticPatchFlow() {
+        let openPanel = NSOpenPanel()
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        openPanel.allowedContentTypes = [.applicationBundle]
+        openPanel.allowsOtherFileTypes = true
+        openPanel.directoryURL = URL(fileURLWithPath: "/Applications")
+        openPanel.title = "选择要打包的应用"
+        openPanel.message = "选择一个 .app 应用，打包为静态注入版本（无需 OpenSwift 启动）"
+        guard openPanel.runModal() == .OK, let sourceURL = openPanel.url else { return }
+        let defaultName = sourceURL.deletingPathExtension().lastPathComponent + "_Patched"
+        let savePanel = NSSavePanel()
+        savePanel.title = "保存打包后的应用"
+        savePanel.nameFieldStringValue = defaultName
+        savePanel.canCreateDirectories = true
+        savePanel.allowedContentTypes = [.applicationBundle]
+        savePanel.directoryURL = sourceURL.deletingLastPathComponent()
+        guard savePanel.runModal() == .OK, let outputURL = savePanel.url else { return }
+        isPatching = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try StaticPatchService.shared.patchApp(
+                    at: sourceURL, outputURL: outputURL, overwrite: true
+                )
+                DispatchQueue.main.async {
+                    self.isPatching = false
+                    self.patchSuccessURL = result
+                    self.showPatchSuccess = true
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isPatching = false
+                    self.patchErrorMessage = error.localizedDescription
+                    self.showPatchError = true
+                }
+            }
         }
     }
 }
@@ -235,25 +278,19 @@ struct ErrorAlertView: View {
     let title: String
     let message: String
     let onDismiss: () -> Void
-    
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 48))
                 .foregroundColor(.orange)
-            
             Text(title)
                 .font(.system(size: 18, weight: .bold))
-            
             Text(message)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-            
-            Button("确定") {
-                onDismiss()
-            }
-            .buttonStyle(.bordered)
+            Button("确定", action: onDismiss)
+                .buttonStyle(.bordered)
         }
         .padding(32)
         .frame(width: 300)
@@ -265,7 +302,6 @@ struct AppRowView: View {
     let isSelected: Bool
     let onSelect: () -> Void
     let onLaunch: () -> Void
-    
     var body: some View {
         HStack(spacing: 12) {
             if let icon = app.icon {
@@ -279,26 +315,21 @@ struct AppRowView: View {
                     .foregroundColor(.secondary)
                     .frame(width: 48, height: 48)
             }
-            
             VStack(alignment: .leading, spacing: 4) {
                 Text(app.name)
                     .font(.system(size: 14, weight: .medium))
-                
                 if let bundleId = app.bundleIdentifier {
                     Text(bundleId)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-                
                 Text(app.url.path)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
-            
             Spacer()
-            
             Button(action: onLaunch) {
                 HStack(spacing: 4) {
                     Image(systemName: "play.fill")
@@ -317,9 +348,7 @@ struct AppRowView: View {
         .padding(.vertical, 10)
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture {
-            onSelect()
-        }
+        .onTapGesture(perform: onSelect)
     }
 }
 
