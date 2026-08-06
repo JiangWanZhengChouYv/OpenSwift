@@ -63,6 +63,8 @@ class AppLauncherViewModel: ObservableObject {
             
             let existing = self.launchedProcesses
             
+            let latestPIDs = Set(latest.map(\.pid))
+
             let merged = latest.map { newProcess -> LaunchedProcess in
                 if let existingProcess = existing.first(where: { $0.pid == newProcess.pid }) {
                     var updated = newProcess
@@ -70,15 +72,21 @@ class AppLauncherViewModel: ObservableObject {
                     updated.isSpeedControlEnabled = existingProcess.isSpeedControlEnabled
                     updated.isSharedMemoryConnected = existingProcess.isSharedMemoryConnected
                     updated.speedController = existingProcess.speedController
+                    updated.launchMethod = existingProcess.launchMethod
                     return updated
                 }
                 return newProcess
             }
-            
-            self.launchedProcesses = merged
-            
+
+            let staticProcesses = existing.filter {
+                $0.launchMethod == .staticInjected && !latestPIDs.contains($0.pid)
+            }
+
+            let finalResult = merged + staticProcesses
+            self.launchedProcesses = finalResult
+
             if let selected = self.selectedLaunchedProcess {
-                if let updatedSelected = merged.first(where: { $0.pid == selected.pid }) {
+                if let updatedSelected = finalResult.first(where: { $0.pid == selected.pid }) {
                     self.selectedLaunchedProcess = updatedSelected
                 } else {
                     self.selectedLaunchedProcess = nil
