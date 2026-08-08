@@ -83,6 +83,13 @@ static int64_t g_clock_time_offset_ns = 0;
 static float g_last_known_ratio = 1.0f;
 static bool  g_last_known_active = false;
 
+// mach_continuous_time 专属状态变量（休眠时继续计数，与 mach_absolute_time 隔离）
+static uint64_t g_base_mach_continuous_time = 0;
+static uint64_t g_last_returned_mach_continuous = 0;
+static int64_t  g_mach_continuous_offset = 0;
+static float    g_last_known_continuous_ratio = 1.0f;
+static bool     g_last_known_continuous_active = false;
+
 // 挂钟时间 hook 专属状态变量（与单调时钟隔离）
 static int64_t  g_base_wall_sec = 0;
 static long     g_base_wall_nsec = 0;
@@ -271,6 +278,9 @@ typedef clock_t (*clock_t_func_t)(void);
 typedef double (*CFAbsoluteTimeGetCurrent_t)(void);
 typedef int (*nanosleep_t)(const struct timespec *req, struct timespec *rem);
 typedef time_t (*time_t_func_t)(time_t *tloc);
+typedef uint64_t (*mach_continuous_time_t)(void);
+typedef uint64_t (*mach_approximate_time_t)(void);
+typedef uint64_t (*clock_gettime_nsec_np_t)(clockid_t clk_id);
 
 static mach_absolute_time_t original_mach_absolute_time = NULL;
 static clock_gettime_t original_clock_gettime = NULL;
@@ -281,6 +291,10 @@ static clock_t_func_t original_clock = NULL;
 static CFAbsoluteTimeGetCurrent_t original_CFAbsoluteTimeGetCurrent = NULL;
 static nanosleep_t original_nanosleep = NULL;
 static time_t_func_t original_time = NULL;
+static mach_continuous_time_t original_mach_continuous_time = NULL;
+static mach_approximate_time_t original_mach_continuous_approximate_time = NULL;
+static mach_approximate_time_t original_mach_approximate_time = NULL;
+static clock_gettime_nsec_np_t original_clock_gettime_nsec_np = NULL;
 
 //
 // mach_absolute_time: 返回系统启动后的绝对时间（单位依赖 mach_timebase_info）
@@ -349,6 +363,81 @@ static uint64_t hooked_mach_absolute_time(void) {
 }
 
 //
+// mach_continuous_time: 返回系统启动后的连续时间（休眠时继续计数）
+// libdispatch/GCD 内部使用此函数，需要独立缩放以避免与 mach_absolute_time 串扰
+//
+static uint64_t hooked_mach_continuous_time(void) {
+    uint64_t current_time = original_mach_continuous_time();
+
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    bool state_changed = (ratio != g_last_known_continuous_ratio || active != g_last_known_continuous_active);
+
+    if (!active) {
+        if (state_changed) {
+            g_mach_continuous_offset = (int64_t)g_last_returned_mach_continuous - (int64_t)current_time;
+        }
+        uint64_t result = current_time + (uint64_t)g_mach_continuous_offset;
+        if (result <= g_last_returned_mach_continuous) {
+            result = g_last_returned_mach_continuous + 1;
+        }
+        g_last_returned_mach_continuous = result;
+        g_last_known_continuous_ratio = ratio;
+        g_last_known_continuous_active = active;
+        return result;
+    }
+
+    if (ratio <= 0.0f || ratio == 1.0f) {
+        if (state_changed) {
+            g_mach_continuous_offset = (int64_t)g_last_returned_mach_continuous - (int64_t)current_time;
+        }
+        uint64_t result = current_time + (uint64_t)g_mach_continuous_offset;
+        if (result <= g_last_returned_mach_continuous) {
+            result = g_last_returned_mach_continuous + 1;
+        }
+        g_last_returned_mach_continuous = result;
+        g_last_known_continuous_ratio = ratio;
+        g_last_known_continuous_active = active;
+        return result;
+    }
+
+    if (state_changed) {
+        double d_ratio = (double)ratio;
+        double d_current_time = (double)current_time;
+        double d_last_returned = (double)g_last_returned_mach_continuous;
+        double d_new_base = (d_current_time * d_ratio - d_last_returned - 1.0) / (d_ratio - 1.0);
+        g_base_mach_continuous_time = (uint64_t)d_new_base;
+        g_last_known_continuous_ratio = ratio;
+        g_last_known_continuous_active = active;
+    }
+
+    uint64_t base = g_base_mach_continuous_time;
+    double delta = (double)(current_time - base);
+    uint64_t adjusted = base + (uint64_t)(delta * (double)ratio);
+
+    if (adjusted <= g_last_returned_mach_continuous) {
+        adjusted = g_last_returned_mach_continuous + 1;
+    }
+    g_last_returned_mach_continuous = adjusted;
+
+    return adjusted;
+}
+
+//
+// mach_continuous_approximate_time: 低精度连续时间，委托给 hooked_mach_continuous_time
+//
+static uint64_t hooked_mach_continuous_approximate_time(void) {
+    return hooked_mach_continuous_time();
+}
+
+//
+// mach_approximate_time: 低精度绝对时间，委托给 hooked_mach_absolute_time
+//
+static uint64_t hooked_mach_approximate_time(void) {
+    return hooked_mach_absolute_time();
+}
+
+//
 // clock_gettime: 获取指定时钟的时间
 // 缩放单调时钟 (CLOCK_MONOTONIC*) 和挂钟时间 (CLOCK_REALTIME*)，
 // 挂钟时间受 hook_wallclock 开关控制。
@@ -358,6 +447,12 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     bool is_monotonic = (clk_id == CLOCK_MONOTONIC || clk_id == CLOCK_MONOTONIC_RAW
 #ifdef CLOCK_MONOTONIC_RAW_APPROX
                          || clk_id == CLOCK_MONOTONIC_RAW_APPROX
+#endif
+#ifdef CLOCK_UPTIME_RAW
+                         || clk_id == CLOCK_UPTIME_RAW
+#endif
+#ifdef CLOCK_UPTIME_RAW_APPROX
+                         || clk_id == CLOCK_UPTIME_RAW_APPROX
 #endif
                         );
     bool is_realtime = (clk_id == CLOCK_REALTIME
@@ -736,6 +831,77 @@ static double hooked_CFAbsoluteTimeGetCurrent(void) {
     return unix_time - 978307200.0;
 }
 
+//
+// clock_gettime_nsec_np: 返回指定时钟的纳秒时间戳
+// Apple 推荐用此替代 mach_absolute_time，需要根据 clk_id 选择缩放路径
+//
+static uint64_t hooked_clock_gettime_nsec_np(clockid_t clk_id) {
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+
+    // 不满足缩放条件：透传
+    if (!active || ratio <= 0.0f || ratio == 1.0f) {
+        return original_clock_gettime_nsec_np(clk_id);
+    }
+
+    // CLOCK_UPTIME_RAW / CLOCK_UPTIME_RAW_APPROX: 等价于 mach_absolute_time
+    bool is_uptime = false;
+#ifdef CLOCK_UPTIME_RAW
+    if (clk_id == CLOCK_UPTIME_RAW) is_uptime = true;
+#endif
+#ifdef CLOCK_UPTIME_RAW_APPROX
+    if (clk_id == CLOCK_UPTIME_RAW_APPROX) is_uptime = true;
+#endif
+    if (is_uptime) {
+        uint64_t mach_time = hooked_mach_absolute_time();
+        // 转换 tick 为纳秒
+        static mach_timebase_info_data_t s_timebase = {0, 0};
+        if (s_timebase.denom == 0) {
+            mach_timebase_info(&s_timebase);
+        }
+        return mach_time * s_timebase.numer / s_timebase.denom;
+    }
+
+    // CLOCK_MONOTONIC_RAW / CLOCK_MONOTONIC_RAW_APPROX: 等价于 mach_continuous_time
+    bool is_continuous = false;
+#ifdef CLOCK_MONOTONIC_RAW
+    if (clk_id == CLOCK_MONOTONIC_RAW) is_continuous = true;
+#endif
+#ifdef CLOCK_MONOTONIC_RAW_APPROX
+    if (clk_id == CLOCK_MONOTONIC_RAW_APPROX) is_continuous = true;
+#endif
+    if (is_continuous) {
+        uint64_t mach_time = hooked_mach_continuous_time();
+        static mach_timebase_info_data_t s_timebase_c = {0, 0};
+        if (s_timebase_c.denom == 0) {
+            mach_timebase_info(&s_timebase_c);
+        }
+        return mach_time * s_timebase_c.numer / s_timebase_c.denom;
+    }
+
+    // CLOCK_REALTIME 等：委托给 hooked_clock_gettime
+    bool is_realtime = (clk_id == CLOCK_REALTIME);
+#ifdef CLOCK_REALTIME_RAW
+    if (clk_id == CLOCK_REALTIME_RAW) is_realtime = true;
+#endif
+#ifdef CLOCK_REALTIME_RAW_APPROX
+    if (clk_id == CLOCK_REALTIME_RAW_APPROX) is_realtime = true;
+#endif
+    if (is_realtime) {
+        if (!speedpatch_is_wallclock_hooked()) {
+            return original_clock_gettime_nsec_np(clk_id);
+        }
+        struct timespec ts;
+        if (hooked_clock_gettime(clk_id, &ts) == 0) {
+            return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+        }
+        return original_clock_gettime_nsec_np(clk_id);
+    }
+
+    // 其他时钟类型：透传
+    return original_clock_gettime_nsec_np(clk_id);
+}
+
 // ============================================================================
 // fishhook 注册
 // ============================================================================
@@ -748,6 +914,11 @@ static void speedpatch_init_time_base(void) {
     if (original_mach_absolute_time != NULL) {
         g_base_mach_absolute_time = original_mach_absolute_time();
         g_last_returned_mach_time = g_base_mach_absolute_time;
+    }
+
+    if (original_mach_continuous_time != NULL) {
+        g_base_mach_continuous_time = original_mach_continuous_time();
+        g_last_returned_mach_continuous = g_base_mach_continuous_time;
     }
 
     if (original_clock_gettime != NULL) {
@@ -792,6 +963,10 @@ static void speedpatch_hook_time_functions(void) {
         {"CFAbsoluteTimeGetCurrent", hooked_CFAbsoluteTimeGetCurrent, (void**)&original_CFAbsoluteTimeGetCurrent},
         {"nanosleep", hooked_nanosleep, (void**)&original_nanosleep},
         {"time", hooked_time, (void**)&original_time},
+        {"mach_continuous_time", hooked_mach_continuous_time, (void**)&original_mach_continuous_time},
+        {"mach_continuous_approximate_time", hooked_mach_continuous_approximate_time, (void**)&original_mach_continuous_approximate_time},
+        {"mach_approximate_time", hooked_mach_approximate_time, (void**)&original_mach_approximate_time},
+        {"clock_gettime_nsec_np", hooked_clock_gettime_nsec_np, (void**)&original_clock_gettime_nsec_np},
     };
 
     int result = rebind_symbols(rebindings, sizeof(rebindings) / sizeof(rebindings[0]));
