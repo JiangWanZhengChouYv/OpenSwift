@@ -18,6 +18,20 @@
 
 #include "fishhook.h"
 
+// DYLD_INTERPOSE 宏：由 dyld 在加载时重写绑定，能拦截共享缓存中的内部调用
+// 比 fishhook 更彻底，fishhook 只能 Hook PLT/lazy symbol，DYLD_INTERPOSE 能 Hook 所有调用
+#ifndef DYLD_INTERPOSE
+#define DYLD_INTERPOSE(_replacement, _replacee) \
+  __attribute__((used)) static struct { \
+    const void* replacement; \
+    const void* replacee; \
+  } _interpose_##_replacee \
+  __attribute__((section("__DATA,__interpose"))) = { \
+    (const void*)(unsigned long)&_replacement, \
+    (const void*)(unsigned long)&_replacee \
+  };
+#endif
+
 #define SHARED_MEMORY_KEY_PREFIX "com.openswift.speedpatch."
 #define SHARED_MEMORY_SIZE 4096
 
@@ -946,6 +960,28 @@ static void speedpatch_init_time_base(void) {
            g_base_clock_gettime_nsec);
 }
 
+//
+// DYLD_INTERPOSE 声明：注册所有 Hook 到 __DATA,__interpose section
+// dyld 在加载时重写绑定，拦截共享缓存中的内部调用（如 CoreFoundation 内部调用 CFAbsoluteTimeGetCurrent）
+//
+
+// CFAbsoluteTimeGetCurrent 来自 CoreFoundation，需要 extern 声明以供 DYLD_INTERPOSE 取地址
+extern double CFAbsoluteTimeGetCurrent(void);
+
+DYLD_INTERPOSE(hooked_mach_absolute_time, mach_absolute_time);
+DYLD_INTERPOSE(hooked_clock_gettime, clock_gettime);
+DYLD_INTERPOSE(hooked_gettimeofday, gettimeofday);
+DYLD_INTERPOSE(hooked_sleep, sleep);
+DYLD_INTERPOSE(hooked_usleep, usleep);
+DYLD_INTERPOSE(hooked_clock, clock);
+DYLD_INTERPOSE(hooked_CFAbsoluteTimeGetCurrent, CFAbsoluteTimeGetCurrent);
+DYLD_INTERPOSE(hooked_nanosleep, nanosleep);
+DYLD_INTERPOSE(hooked_time, time);
+DYLD_INTERPOSE(hooked_mach_continuous_time, mach_continuous_time);
+DYLD_INTERPOSE(hooked_mach_continuous_approximate_time, mach_continuous_approximate_time);
+DYLD_INTERPOSE(hooked_mach_approximate_time, mach_approximate_time);
+DYLD_INTERPOSE(hooked_clock_gettime_nsec_np, clock_gettime_nsec_np);
+
 static void speedpatch_hook_time_functions(void) {
     printf("[SpeedPatch] Starting to hook time functions...\n");
 
@@ -969,16 +1005,8 @@ static void speedpatch_hook_time_functions(void) {
         {"clock_gettime_nsec_np", hooked_clock_gettime_nsec_np, (void**)&original_clock_gettime_nsec_np},
     };
 
-    int result = rebind_symbols(rebindings, sizeof(rebindings) / sizeof(rebindings[0]));
-
-    if (result == 0) {
-        printf("[SpeedPatch] Successfully hooked %lu time functions\n",
-               (unsigned long)(sizeof(rebindings) / sizeof(rebindings[0])));
-    } else {
-        fprintf(stderr, "[SpeedPatch] Failed to hook time functions, error code: %d\n", result);
-    }
-
-    // 尝试从 CoreFoundation 加载 CFAbsoluteTimeGetCurrent（作为备份）
+    // 先从 CoreFoundation 加载 CFAbsoluteTimeGetCurrent 原始地址
+    // 必须在 rebind_symbols 之前执行，否则 dlsym 会覆盖 fishhook 设置的指针
     void* corefoundation = dlopen("/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation", RTLD_LAZY);
     if (corefoundation) {
         original_CFAbsoluteTimeGetCurrent = (CFAbsoluteTimeGetCurrent_t)dlsym(corefoundation, "CFAbsoluteTimeGetCurrent");
@@ -999,6 +1027,15 @@ static void speedpatch_hook_time_functions(void) {
             printf("[SpeedPatch] Found CFAbsoluteTimeGetCurrent in QuartzCore\n");
         }
         dlclose(quartzcore);
+    }
+
+    int result = rebind_symbols(rebindings, sizeof(rebindings) / sizeof(rebindings[0]));
+
+    if (result == 0) {
+        printf("[SpeedPatch] Successfully hooked %lu time functions\n",
+               (unsigned long)(sizeof(rebindings) / sizeof(rebindings[0])));
+    } else {
+        fprintf(stderr, "[SpeedPatch] Failed to hook time functions, error code: %d\n", result);
     }
 }
 

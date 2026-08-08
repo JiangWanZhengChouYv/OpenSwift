@@ -67,6 +67,8 @@ targets:
         OTHER_LDFLAGS:
           - "-dynamiclib"
           - "-Wl,-no_warn_duplicate_libraries"
+          - "-framework"
+          - "CoreFoundation"
         CLANG_ENABLE_MODULES: YES
         SWIFT_OBJC_BRIDGING_HEADER: ""
 
