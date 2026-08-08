@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <errno.h>
 #include <math.h>
+#include <sys/event.h>
+#include <dispatch/dispatch.h>
 
 #include "fishhook.h"
 
@@ -111,6 +113,12 @@ static int64_t  g_last_wall_ns = INT64_MIN;
 static int64_t  g_wall_time_offset_ns = 0;
 static float    g_last_known_wall_ratio = 1.0f;
 static bool     g_last_known_wall_active = false;
+
+// mach_wait_until 专属状态变量（与现有时间状态隔离）
+static uint64_t g_last_mach_wait_deadline = 0;
+static float    g_last_mach_wait_ratio = 1.0f;
+static bool     g_last_mach_wait_active = false;
+static int64_t  g_mach_wait_offset = 0;
 
 //
 // 共享内存初始化
@@ -295,6 +303,15 @@ typedef time_t (*time_t_func_t)(time_t *tloc);
 typedef uint64_t (*mach_continuous_time_t)(void);
 typedef uint64_t (*mach_approximate_time_t)(void);
 typedef uint64_t (*clock_gettime_nsec_np_t)(clockid_t clk_id);
+typedef kern_return_t (*mach_wait_until_t)(uint64_t deadline);
+typedef int (*kevent_t_func)(int kq, const struct kevent *changelist, int nchanges,
+                              struct kevent *eventlist, int nevents,
+                              const struct timespec *timeout);
+typedef int (*kevent64_t_func)(int kq, const struct kevent64_s *changelist, int nchanges,
+                                struct kevent64_s *eventlist, int nevents,
+                                unsigned int flags,
+                                const struct timespec *timeout);
+typedef uint64_t (*dispatch_time_t_func)(dispatch_time_t when, int64_t delta);
 
 static mach_absolute_time_t original_mach_absolute_time = NULL;
 static clock_gettime_t original_clock_gettime = NULL;
@@ -309,6 +326,10 @@ static mach_continuous_time_t original_mach_continuous_time = NULL;
 static mach_approximate_time_t original_mach_continuous_approximate_time = NULL;
 static mach_approximate_time_t original_mach_approximate_time = NULL;
 static clock_gettime_nsec_np_t original_clock_gettime_nsec_np = NULL;
+static mach_wait_until_t original_mach_wait_until = NULL;
+static kevent_t_func original_kevent = NULL;
+static kevent64_t_func original_kevent64 = NULL;
+static dispatch_time_t_func original_dispatch_time = NULL;
 
 //
 // mach_absolute_time: 返回系统启动后的绝对时间（单位依赖 mach_timebase_info）
@@ -916,6 +937,157 @@ static uint64_t hooked_clock_gettime_nsec_np(clockid_t clk_id) {
     return original_clock_gettime_nsec_np(clk_id);
 }
 
+//
+// mach_wait_until: 等待直到指定绝对时间
+// 缩放剩余等待时间，确保定时器等待正确加速
+//
+static kern_return_t hooked_mach_wait_until(uint64_t deadline) {
+    uint64_t current_time = original_mach_absolute_time();
+    
+    if (deadline <= current_time) {
+        return original_mach_wait_until(deadline);
+    }
+    
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    bool state_changed = (ratio != g_last_mach_wait_ratio || active != g_last_mach_wait_active);
+    
+    if (!active || ratio <= 0.0f || ratio == 1.0f) {
+        if (state_changed) {
+            g_mach_wait_offset = (int64_t)g_last_mach_wait_deadline - (int64_t)deadline;
+        }
+        uint64_t new_deadline = deadline + (uint64_t)g_mach_wait_offset;
+        if (new_deadline <= current_time) {
+            new_deadline = current_time + 1;
+        }
+        g_last_mach_wait_deadline = new_deadline;
+        g_last_mach_wait_ratio = ratio;
+        g_last_mach_wait_active = active;
+        return original_mach_wait_until(new_deadline);
+    }
+    
+    // 计算剩余等待时间并缩放
+    uint64_t remaining = deadline - current_time;
+    uint64_t scaled_remaining = (uint64_t)((double)remaining / (double)ratio);
+    if (scaled_remaining == 0) scaled_remaining = 1;
+    
+    uint64_t new_deadline = current_time + scaled_remaining;
+    
+    if (state_changed) {
+        g_last_mach_wait_deadline = new_deadline;
+        g_last_mach_wait_ratio = ratio;
+        g_last_mach_wait_active = active;
+    }
+    
+    g_last_mach_wait_deadline = new_deadline;
+    return original_mach_wait_until(new_deadline);
+}
+
+//
+// kevent: kqueue 事件等待，带 timeout
+// 缩放 timeout 参数，覆盖 kqueue 事件循环
+//
+static int hooked_kevent(int kq, const struct kevent *changelist, int nchanges,
+                          struct kevent *eventlist, int nevents,
+                          const struct timespec *timeout) {
+    if (timeout == NULL || (timeout->tv_sec == 0 && timeout->tv_nsec == 0)) {
+        return original_kevent(kq, changelist, nchanges, eventlist, nevents, timeout);
+    }
+    
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    
+    if (!active || ratio <= 0.0f || ratio == 1.0f) {
+        return original_kevent(kq, changelist, nchanges, eventlist, nevents, timeout);
+    }
+    
+    // 缩放 timeout
+    double scaled_sec = (double)timeout->tv_sec / (double)ratio;
+    double scaled_nsec = (double)timeout->tv_nsec / (double)ratio;
+    
+    scaled_sec += floor(scaled_nsec / 1000000000.0);
+    scaled_nsec = fmod(scaled_nsec, 1000000000.0);
+    if (scaled_nsec < 0) {
+        scaled_nsec += 1000000000.0;
+        scaled_sec -= 1.0;
+    }
+    
+    struct timespec scaled_timeout;
+    scaled_timeout.tv_sec = (time_t)scaled_sec;
+    scaled_timeout.tv_nsec = (long)scaled_nsec;
+    
+    if (scaled_timeout.tv_sec == 0 && scaled_timeout.tv_nsec == 0) {
+        scaled_timeout.tv_nsec = 1;
+    }
+    
+    return original_kevent(kq, changelist, nchanges, eventlist, nevents, &scaled_timeout);
+}
+
+//
+// kevent64: kqueue 64位事件等待，带 timeout
+// 缩放 timeout 参数
+//
+static int hooked_kevent64(int kq, const struct kevent64_s *changelist, int nchanges,
+                            struct kevent64_s *eventlist, int nevents,
+                            unsigned int flags,
+                            const struct timespec *timeout) {
+    if (timeout == NULL || (timeout->tv_sec == 0 && timeout->tv_nsec == 0)) {
+        return original_kevent64(kq, changelist, nchanges, eventlist, nevents, flags, timeout);
+    }
+    
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    
+    if (!active || ratio <= 0.0f || ratio == 1.0f) {
+        return original_kevent64(kq, changelist, nchanges, eventlist, nevents, flags, timeout);
+    }
+    
+    // 缩放 timeout（与 kevent 相同的逻辑）
+    double scaled_sec = (double)timeout->tv_sec / (double)ratio;
+    double scaled_nsec = (double)timeout->tv_nsec / (double)ratio;
+    
+    scaled_sec += floor(scaled_nsec / 1000000000.0);
+    scaled_nsec = fmod(scaled_nsec, 1000000000.0);
+    if (scaled_nsec < 0) {
+        scaled_nsec += 1000000000.0;
+        scaled_sec -= 1.0;
+    }
+    
+    struct timespec scaled_timeout;
+    scaled_timeout.tv_sec = (time_t)scaled_sec;
+    scaled_timeout.tv_nsec = (long)scaled_nsec;
+    
+    if (scaled_timeout.tv_sec == 0 && scaled_timeout.tv_nsec == 0) {
+        scaled_timeout.tv_nsec = 1;
+    }
+    
+    return original_kevent64(kq, changelist, nchanges, eventlist, nevents, flags, &scaled_timeout);
+}
+
+//
+// dispatch_time: GCD 调度时间计算
+// dispatch_after 内部调用此函数，缩放 offset 实现定时器加速
+// 注意：DISPATCH_TIME_NOW 时透传（绝对时间查询由 mach_absolute_time 处理）
+//
+static uint64_t hooked_dispatch_time(dispatch_time_t when, int64_t delta) {
+    bool active = speedpatch_is_active();
+    float ratio = speedpatch_get_speed_ratio();
+    
+    // DISPATCH_TIME_NOW 表示绝对时间查询，由 mach_absolute_time 处理
+    // 或在 1x/关闭状态时直接透传
+    if (when == DISPATCH_TIME_NOW || !active || ratio <= 0.0f || ratio == 1.0f) {
+        return original_dispatch_time(when, delta);
+    }
+    
+    // 缩放 delta（相对偏移量）
+    int64_t scaled_delta = (int64_t)((double)delta / (double)ratio);
+    if (scaled_delta == 0 && delta != 0) {
+        scaled_delta = 1;  // 避免 0 偏移
+    }
+    
+    return original_dispatch_time(when, scaled_delta);
+}
+
 // ============================================================================
 // fishhook 注册
 // ============================================================================
@@ -981,6 +1153,10 @@ DYLD_INTERPOSE(hooked_mach_continuous_time, mach_continuous_time);
 DYLD_INTERPOSE(hooked_mach_continuous_approximate_time, mach_continuous_approximate_time);
 DYLD_INTERPOSE(hooked_mach_approximate_time, mach_approximate_time);
 DYLD_INTERPOSE(hooked_clock_gettime_nsec_np, clock_gettime_nsec_np);
+DYLD_INTERPOSE(hooked_mach_wait_until, mach_wait_until);
+DYLD_INTERPOSE(hooked_kevent, kevent);
+DYLD_INTERPOSE(hooked_kevent64, kevent64);
+DYLD_INTERPOSE(hooked_dispatch_time, dispatch_time);
 
 static void speedpatch_hook_time_functions(void) {
     printf("[SpeedPatch] Starting to hook time functions...\n");
@@ -1003,6 +1179,10 @@ static void speedpatch_hook_time_functions(void) {
         {"mach_continuous_approximate_time", hooked_mach_continuous_approximate_time, (void**)&original_mach_continuous_approximate_time},
         {"mach_approximate_time", hooked_mach_approximate_time, (void**)&original_mach_approximate_time},
         {"clock_gettime_nsec_np", hooked_clock_gettime_nsec_np, (void**)&original_clock_gettime_nsec_np},
+        {"mach_wait_until", hooked_mach_wait_until, (void**)&original_mach_wait_until},
+        {"kevent", hooked_kevent, (void**)&original_kevent},
+        {"kevent64", hooked_kevent64, (void**)&original_kevent64},
+        {"dispatch_time", hooked_dispatch_time, (void**)&original_dispatch_time},
     };
 
     // 先从 CoreFoundation 加载 CFAbsoluteTimeGetCurrent 原始地址
