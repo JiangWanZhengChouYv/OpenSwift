@@ -23,6 +23,7 @@ struct SettingsKeys {
 
     static let maxHistoryCount = "MaxHistoryCount"
     static let autoCleanupInactive = "AutoCleanupInactive"
+    static let hookWallclockDefault = "HookWallclockDefault"
 
     static let settingsVersion = "SettingsVersion"
 }
@@ -55,6 +56,7 @@ class SettingsStorage {
 
             SettingsKeys.maxHistoryCount: 100,
             SettingsKeys.autoCleanupInactive: true,
+            SettingsKeys.hookWallclockDefault: true,
 
             SettingsKeys.settingsVersion: currentVersion
         ]

@@ -38,7 +38,7 @@ private func closeSharedMemory(fd: Int32, pointer: UnsafeMutableRawPointer) {
     close(fd)
 }
 
-func setSpeed(pid: pid_t, ratio: Float) -> Int32 {
+func setSpeed(pid: pid_t, ratio: Float, wallclock: Int? = nil) -> Int32 {
     var clampedRatio = ratio
     if clampedRatio < minSpeedRatio {
         print("警告：速度倍率 \(ratio) 低于最小值 \(minSpeedRatio)，已截断")
@@ -80,9 +80,19 @@ func setSpeed(pid: pid_t, ratio: Float) -> Int32 {
     pointer.storeBytes(of: now,
                        toByteOffset: SharedMemoryLayout.offsetTimestamp,
                        as: UInt64.self)
+    if let wc = wallclock {
+        let wcValue = (wc != 0) ? UInt8(1) : UInt8(0)
+        pointer.storeBytes(of: wcValue,
+                           toByteOffset: SharedMemoryLayout.offsetHookWallclock,
+                           as: UInt8.self)
+    }
     msync(pointer, SharedMemoryLayout.size, MS_SYNC)
 
-    print("已设置进程 \(pid) 的加速倍率为 \(clampedRatio)x（已启用）")
+    if let wc = wallclock {
+        print("已设置进程 \(pid) 的加速倍率为 \(clampedRatio)x（已启用），挂钟时间加速\(wc != 0 ? "开启" : "关闭")")
+    } else {
+        print("已设置进程 \(pid) 的加速倍率为 \(clampedRatio)x（已启用）")
+    }
     return 0
 }
 

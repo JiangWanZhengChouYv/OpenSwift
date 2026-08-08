@@ -117,6 +117,12 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var hookWallclockDefault: Bool = true {
+        didSet {
+            storage.save(hookWallclockDefault, forKey: SettingsKeys.hookWallclockDefault)
+        }
+    }
+
     private init() {
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
@@ -138,6 +144,7 @@ class AppSettings: ObservableObject {
 
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
+        hookWallclockDefault = storage.loadBool(forKey: SettingsKeys.hookWallclockDefault, defaultValue: true)
     }
 
     func bootstrapSideEffects() {
@@ -177,6 +184,7 @@ class AppSettings: ObservableObject {
         showSpeedNotifications = storage.loadBool(forKey: SettingsKeys.showSpeedNotifications)
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
+        hookWallclockDefault = storage.loadBool(forKey: SettingsKeys.hookWallclockDefault, defaultValue: true)
     }
 
     func resetToDefaults() {
@@ -224,7 +232,8 @@ class AppSettings: ObservableObject {
             hotkeyEnabled: hotkeyEnabled,
             showSpeedNotifications: showSpeedNotifications,
             maxHistoryCount: maxHistoryCount,
-            autoCleanupInactive: autoCleanupInactive
+            autoCleanupInactive: autoCleanupInactive,
+            hookWallclockDefault: hookWallclockDefault
         )
     }
 
@@ -241,6 +250,7 @@ class AppSettings: ObservableObject {
         showSpeedNotifications = settings.showSpeedNotifications
         maxHistoryCount = settings.maxHistoryCount
         autoCleanupInactive = settings.autoCleanupInactive
+        hookWallclockDefault = settings.hookWallclockDefault
     }
     
     func shutdown() {
@@ -262,6 +272,7 @@ struct AppSettingsExportData: Codable {
     var showSpeedNotifications: Bool
     var maxHistoryCount: Int
     var autoCleanupInactive: Bool
+    var hookWallclockDefault: Bool
 }
 
 struct ConfigurationExportData: Codable {

@@ -73,6 +73,7 @@ class AppLauncherViewModel: ObservableObject {
                     updated.isSharedMemoryConnected = existingProcess.isSharedMemoryConnected
                     updated.speedController = existingProcess.speedController
                     updated.launchMethod = existingProcess.launchMethod
+                    updated.isWallclockHooked = existingProcess.isWallclockHooked
                     return updated
                 }
                 return newProcess
@@ -137,7 +138,8 @@ class AppLauncherViewModel: ObservableObject {
                 currentSpeed: Double(meta.speedRatio),
                 isSpeedControlEnabled: meta.isActive,
                 isSharedMemoryConnected: true,
-                launchMethod: .staticInjected
+                launchMethod: .staticInjected,
+                isWallclockHooked: true
             )
             result.append(newProcess)
         }
@@ -160,9 +162,14 @@ class AppLauncherViewModel: ObservableObject {
                 var mutable = current
                 let success = mutable.speedController.attachToProcess(pid: process.pid)
                 mutable.isSharedMemoryConnected = success
+                if success {
+                    _ = mutable.speedController.setHookWallclock(AppSettings.shared.hookWallclockDefault)
+                    mutable.isWallclockHooked = AppSettings.shared.hookWallclockDefault
+                }
                 if let state = mutable.speedController.syncFromSharedMemory() {
                     mutable.currentSpeed = Double(state.speedRatio)
                     mutable.isSpeedControlEnabled = state.isEnabled
+                    mutable.isWallclockHooked = state.isWallclockHooked
                 }
                 return mutable
             }
@@ -336,7 +343,7 @@ class AppLauncherViewModel: ObservableObject {
         return stateQueue.sync { launchedProcesses.first { $0.id == id } }
     }
 
-    private func updateProcessState(for id: UUID, mutator: (LaunchedProcess) -> LaunchedProcess?) {
+    func updateProcessState(for id: UUID, mutator: (LaunchedProcess) -> LaunchedProcess?) {
         var snapshot: [LaunchedProcess] = stateQueue.sync { launchedProcesses }
         guard let index = snapshot.firstIndex(where: { $0.id == id }) else { return }
         guard let updated = mutator(snapshot[index]) else { return }

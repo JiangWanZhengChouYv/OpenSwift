@@ -43,6 +43,7 @@ struct LaunchedProcess: Identifiable, Equatable {
     var isSpeedControlEnabled: Bool
     var isSharedMemoryConnected: Bool
     var launchMethod: LaunchMethod
+    var isWallclockHooked: Bool
     /// 与目标进程一一对应的 SpeedControlManager。由 AppLauncher 在创建进程时
     /// 初始化（lazy attach），不与其他进程共享上下文。
     var speedController: SpeedControlManager
@@ -58,6 +59,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         isSpeedControlEnabled: Bool = false,
         isSharedMemoryConnected: Bool = false,
         launchMethod: LaunchMethod = .dyld,
+        isWallclockHooked: Bool = true,
         speedController: SpeedControlManager? = nil
     ) {
         self.id = id
@@ -70,6 +72,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         self.isSpeedControlEnabled = isSpeedControlEnabled
         self.isSharedMemoryConnected = isSharedMemoryConnected
         self.launchMethod = launchMethod
+        self.isWallclockHooked = isWallclockHooked
         self.speedController = speedController ?? SpeedControlManager(pid: pid)
     }
 
@@ -98,8 +101,8 @@ struct LaunchedProcess: Identifiable, Equatable {
 class AppLauncher {
     static let shared = AppLauncher()
 
-    private var launchedProcesses: [LaunchedProcess] = []
-    private let launchQueue = DispatchQueue(label: "com.openswift.applauncher", qos: .userInitiated)
+    var launchedProcesses: [LaunchedProcess] = []
+    let launchQueue = DispatchQueue(label: "com.openswift.applauncher", qos: .userInitiated)
     private var processObserver: NSObjectProtocol?
     private var isSetup: Bool = false
 
@@ -380,20 +383,4 @@ class AppLauncher {
         }
     }
 
-    func removeProcess(_ process: LaunchedProcess) {
-        launchQueue.async { [weak self] in
-            self?.launchedProcesses.removeAll { $0.id == process.id }
-            logDebug("Removed process record: \(process.appName)", log: .launcher)
-        }
-    }
-
-    func clearTerminatedProcesses() {
-        launchQueue.async { [weak self] in
-            guard let self = self else { return }
-            let beforeCount = self.launchedProcesses.count
-            self.launchedProcesses.removeAll { !$0.isRunning }
-            let removedCount = beforeCount - self.launchedProcesses.count
-            logDebug("Cleared \(removedCount) terminated process records", log: .launcher)
-        }
-    }
 }

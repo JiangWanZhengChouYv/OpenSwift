@@ -9,6 +9,7 @@ enum SharedMemoryLayout {
     static let offsetSpeedRatio = 12
     static let offsetIsActive = 16
     static let offsetTimestamp = 24
+    static let offsetHookWallclock = 32
     static let magicNumber: UInt32 = 0x5350444D
     static let currentVersion: UInt32 = 2
 }

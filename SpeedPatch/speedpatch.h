@@ -18,14 +18,16 @@
 // 的自然对齐读写在现代 CPU 上是原子的，因此无锁读写是安全的
 //
 // 字段偏移:
-//   magic:        0  (uint32_t, 4 bytes) - 魔术数字 0x5350444D
-//   version:      4  (uint32_t, 4 bytes) - 协议版本
-//   owner_pid:    8  (uint32_t, 4 bytes) - 创建者 PID
-//   speed_ratio:  12 (float, 4 bytes)    - 速度倍率
-//   is_active:    16 (uint8_t, 1 byte)   - 是否启用
-//   padding:      17-23 (7 bytes)        - 对齐填充
-//   timestamp:    24 (uint64_t, 8 bytes) - 时间戳
-//   reserved:     32-71 (40 bytes)       - 预留
+//   magic:           0  (uint32_t, 4 bytes) - 魔术数字 0x5350444D
+//   version:         4  (uint32_t, 4 bytes) - 协议版本
+//   owner_pid:       8  (uint32_t, 4 bytes) - 创建者 PID
+//   speed_ratio:     12 (float, 4 bytes)    - 速度倍率
+//   is_active:       16 (uint8_t, 1 byte)   - 是否启用
+//   padding:         17-23 (7 bytes)        - 对齐填充
+//   timestamp:       24 (uint64_t, 8 bytes) - 时间戳
+//   hook_wallclock:  32 (uint8_t, 1 byte)   - 是否 hook 挂钟时间（默认1=开）
+//   reserved2:       33-39 (7 bytes)        - 对齐填充
+//   reserved:        40-71 (32 bytes)       - 预留
 // 总大小: 72 bytes
 typedef struct {
     uint32_t magic;
@@ -35,7 +37,9 @@ typedef struct {
     uint8_t  is_active;
     uint8_t  padding[7];
     uint64_t timestamp;
-    uint8_t  reserved[40];
+    uint8_t  hook_wallclock;
+    uint8_t  reserved2[7];
+    uint8_t  reserved[32];
 } SharedMemoryHeader;
 
 // 编译时断言：验证结构体大小和字段偏移
@@ -46,6 +50,7 @@ _Static_assert(offsetof(SharedMemoryHeader, owner_pid) == 8, "owner_pid offset m
 _Static_assert(offsetof(SharedMemoryHeader, speed_ratio) == 12, "speed_ratio offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, is_active) == 16, "is_active offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, timestamp) == 24, "timestamp offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, hook_wallclock) == 32, "hook_wallclock offset mismatch");
 
 #ifdef __cplusplus
 extern "C" {

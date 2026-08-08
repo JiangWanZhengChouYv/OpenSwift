@@ -13,7 +13,8 @@ OpenSwift CLI - macOS 应用加速器命令行工具
   openswift <目录>              智能模式（运行中则重启，否则启动）
   openswift -o <目录>           DYLD 启动模式（直接以 DYLD 注入方式启动）
   openswift -r <目录>           DYLD 重启模式（先终止已运行进程，再启动）
-  openswift speed <pid> <ratio> 设置目标进程的加速倍率（0.1~15.0）
+  openswift speed <pid> <ratio> [--wallclock <0|1>]  设置目标进程的加速倍率（0.1~15.0）
+                                                      --wallclock 0/1 控制挂钟时间加速开关
   openswift quit <pid>          复位加速并清理目标进程的共享内存
   openswift patch <源.app> [输出.app]  为应用生成静态注入版本（无需 OpenSwift 启动）
 
@@ -25,6 +26,7 @@ OpenSwift CLI - macOS 应用加速器命令行工具
   openswift -o ./testapp
   openswift -r /Applications/MyApp.app
   openswift speed 12345 2.0     # 设置 2x 加速
+  openswift speed 12345 2.0 --wallclock 0  # 2x 加速但关闭挂钟时间加速
   openswift quit 12345          # 复位加速并清理共享内存
   openswift patch /Applications/MyApp.app /Applications/MyApp_Speed.app
   openswift patch /Applications/MyApp.app          # 同目录生成 MyApp_Patched.app
@@ -59,10 +61,10 @@ if firstArg == "-h" || firstArg == "--help" {
 
 // 处理子命令：speed / quit
 if firstArg == "speed" {
-    // openswift speed <pid> <ratio>
+    // openswift speed <pid> <ratio> [--wallclock <0|1>]
     guard arguments.count >= 4 else {
         writeError("错误：speed 命令需要 <pid> 和 <ratio> 参数")
-        writeError("用法：openswift speed <pid> <ratio>")
+        writeError("用法：openswift speed <pid> <ratio> [--wallclock <0|1>]")
         exit(1)
     }
 
@@ -76,7 +78,23 @@ if firstArg == "speed" {
         exit(1)
     }
 
-    let exitCode = setSpeed(pid: pid, ratio: ratio)
+    var wallclock: Int? = nil
+    var index = 4
+    while index < arguments.count {
+        let arg = arguments[index]
+        if arg == "--wallclock" || arg == "-w" {
+            index += 1
+            if index < arguments.count, let wc = Int(arguments[index]) {
+                wallclock = wc
+            } else {
+                writeError("错误：--wallclock 需要参数 <0|1>")
+                exit(1)
+            }
+        }
+        index += 1
+    }
+
+    let exitCode = setSpeed(pid: pid, ratio: ratio, wallclock: wallclock)
     exit(exitCode)
 }
 

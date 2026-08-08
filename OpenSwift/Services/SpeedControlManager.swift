@@ -16,7 +16,8 @@ enum SharedMemoryLayout {
     static let offsetSpeedRatio = 12 // Float32
     static let offsetIsActive = 16   // UInt8
     static let offsetTimestamp = 24  // UInt64
-    
+    static let offsetHookWallclock = 32  // UInt8
+
     static let currentVersion: UInt32 = 2
     static let minVersion: UInt32 = 2
     static let minMagic: UInt32 = 0x5350444D // "SPDM"
@@ -26,15 +27,15 @@ enum SharedMemoryLayout {
 class SpeedControlManager {
 
     private let sharedMemoryKeyPrefix = "com.openswift.speedpatch."
-    private var targetPID: pid_t = 0
-    private var sharedMemoryPointer: UnsafeMutableRawPointer?
-    private var sharedMemoryFD: Int32 = -1
+    var targetPID: pid_t = 0
+    var sharedMemoryPointer: UnsafeMutableRawPointer?
+    var sharedMemoryFD: Int32 = -1
 
     private let minSpeedRatio: Float = 0.1
     private let maxSpeedRatio: Float = 15.0
     private let defaultSpeedRatio: Float = 1.0
 
-    private let ioQueue: DispatchQueue
+    let ioQueue: DispatchQueue
 
     var isConnected: Bool {
         return ioQueue.sync { sharedMemoryPointer != nil && sharedMemoryFD != -1 }
@@ -382,12 +383,13 @@ extension SpeedControlManager {
         }
     }
 
-    func syncFromSharedMemory() -> (speedRatio: Float, isEnabled: Bool)? {
+    func syncFromSharedMemory() -> SharedMemorySnapshot? {
         return ioQueue.sync {
             guard let pointer = sharedMemoryPointer else { return nil }
             let ratio = pointer.load(fromByteOffset: SharedMemoryLayout.offsetSpeedRatio, as: Float32.self)
             let isActive = pointer.load(fromByteOffset: SharedMemoryLayout.offsetIsActive, as: UInt8.self) != 0
-            return (ratio, isActive)
+            let isWallclock = pointer.load(fromByteOffset: SharedMemoryLayout.offsetHookWallclock, as: UInt8.self) != 0
+            return SharedMemorySnapshot(speedRatio: ratio, isEnabled: isActive, isWallclockHooked: isWallclock)
         }
     }
 }

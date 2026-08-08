@@ -31,6 +31,21 @@ struct FirstLaunchView: View {
             ]
         ),
         FirstLaunchStep(
+            icon: "clock.fill",
+            title: "挂钟时间加速",
+            description: "OpenSwift 默认同时加速单调时钟和挂钟时间，覆盖更多应用。",
+            features: [
+                "默认开启，加速百度网盘等应用",
+                "可针对单个进程关闭",
+                "遇到网络/登录问题可尝试关闭"
+            ],
+            details: [
+                "• 开启：加速基于挂钟时间的应用（如百度网盘、使用 NSDate 的应用）",
+                "• 关闭：仅加速单调时钟，避免 HTTPS 证书/登录态提前失效",
+                "• 在进程列表的速度控制区可切换此开关"
+            ]
+        ),
+        FirstLaunchStep(
             icon: "lock.shield.fill",
             title: "安全声明",
             description: "我们非常重视您的隐私和安全。",

@@ -225,6 +225,8 @@ extension SpeedControlPanel {
                     ),
                     isEnabled: currentProcess.isSpeedControlEnabled
                 )
+
+                wallclockToggleSection(for: currentProcess)
             }
         }
         .padding()
@@ -383,16 +385,5 @@ extension SpeedControlPanel {
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(NSColor.controlBackgroundColor))
-    }
-}
-struct SpeedControlPanel_Previews: PreviewProvider {
-    static var previews: some View {
-        SpeedControlPanel(
-            speedControlState: SpeedControlState.shared,
-            processManager: ProcessManager(),
-            appLauncherViewModel: AppLauncherViewModel.shared,
-            selectedTab: .constant(0)
-        )
-        .frame(width: 600, height: 800)
     }
 }

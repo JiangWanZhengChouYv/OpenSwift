@@ -38,7 +38,9 @@ typedef struct {
     uint8_t  is_active;           // 1 byte,  offset 16  - 是否启用
     uint8_t  padding[7];          // 7 bytes, offset 17-23 (填充到 8 字节边界)
     uint64_t timestamp;           // 8 bytes, offset 24  - 最后修改时间戳
-    uint8_t  reserved[40];        // 40 bytes, offset 32-71
+    uint8_t  hook_wallclock;      // 1 byte,  offset 32  - 是否 hook 挂钟时间（默认1=开）
+    uint8_t  reserved2[7];        // 7 bytes, offset 33-39 (填充到 8 字节边界)
+    uint8_t  reserved[32];        // 32 bytes, offset 40-71
 } SharedMemoryHeader;             // 总大小: 72 bytes
 
 // 编译时断言：验证结构体大小和字段偏移
@@ -49,6 +51,7 @@ _Static_assert(offsetof(SharedMemoryHeader, owner_pid) == 8, "owner_pid offset m
 _Static_assert(offsetof(SharedMemoryHeader, speed_ratio) == 12, "speed_ratio offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, is_active) == 16, "is_active offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, timestamp) == 24, "timestamp offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, hook_wallclock) == 32, "hook_wallclock offset mismatch");
 
 static SharedMemoryHeader* g_shared_memory = NULL;
 static int g_shm_fd = -1;
@@ -78,6 +81,14 @@ static int64_t g_clock_time_offset_ns = 0;
 // 记录上一次的 ratio 和 active 状态，用于检测倍率变化并重置基准
 static float g_last_known_ratio = 1.0f;
 static bool  g_last_known_active = false;
+
+// 挂钟时间 hook 专属状态变量（与单调时钟隔离）
+static int64_t  g_base_wall_sec = 0;
+static long     g_base_wall_nsec = 0;
+static int64_t  g_last_wall_ns = INT64_MIN;
+static int64_t  g_wall_time_offset_ns = 0;
+static float    g_last_known_wall_ratio = 1.0f;
+static bool     g_last_known_wall_active = false;
 
 //
 // 共享内存初始化
@@ -160,6 +171,7 @@ static bool speedpatch_init_shared_memory(void) {
         g_shared_memory->speed_ratio = DEFAULT_SPEED_RATIO;
         g_shared_memory->is_active = 0;
         g_shared_memory->timestamp = (uint64_t)time(NULL);
+        g_shared_memory->hook_wallclock = 1;
         msync(g_shared_memory, SHARED_MEMORY_SIZE, MS_SYNC);
         printf("[SpeedPatch] Shared memory initialized (owner_pid=%u, magic=0x%08X)\n",
                g_own_pid, MAGIC_NUMBER);
@@ -233,6 +245,16 @@ bool speedpatch_is_active(void) {
     }
 
     return (g_shared_memory->is_active != 0);
+}
+
+bool speedpatch_is_wallclock_hooked(void) {
+    if (g_shared_memory == NULL) {
+        return true;  // 默认开启
+    }
+    if (g_shared_memory->magic != MAGIC_NUMBER) {
+        return true;  // magic 校验失败默认开启
+    }
+    return (g_shared_memory->hook_wallclock != 0);
 }
 
 // ============================================================================
@@ -323,11 +345,31 @@ static uint64_t hooked_mach_absolute_time(void) {
 
 //
 // clock_gettime: 获取指定时钟的时间
-// 只修改单调时钟 (CLOCK_MONOTONIC*)，不修改挂钟时间 (CLOCK_REALTIME)
+// 缩放单调时钟 (CLOCK_MONOTONIC*) 和挂钟时间 (CLOCK_REALTIME*)，
+// 挂钟时间受 hook_wallclock 开关控制。
 // 使用基准时间法缩放，并保持单调性。
 //
 static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
-    if (clk_id != CLOCK_MONOTONIC && clk_id != CLOCK_MONOTONIC_RAW) {
+    bool is_monotonic = (clk_id == CLOCK_MONOTONIC || clk_id == CLOCK_MONOTONIC_RAW
+#ifdef CLOCK_MONOTONIC_RAW_APPROX
+                         || clk_id == CLOCK_MONOTONIC_RAW_APPROX
+#endif
+                        );
+    bool is_realtime = (clk_id == CLOCK_REALTIME
+#ifdef CLOCK_REALTIME_RAW
+                        || clk_id == CLOCK_REALTIME_RAW
+#endif
+#ifdef CLOCK_REALTIME_RAW_APPROX
+                        || clk_id == CLOCK_REALTIME_RAW_APPROX
+#endif
+                       );
+
+    if (!is_monotonic && !is_realtime) {
+        return original_clock_gettime(clk_id, tp);
+    }
+
+    // 挂钟时间需要检查 hook_wallclock 开关
+    if (is_realtime && !speedpatch_is_wallclock_hooked()) {
         return original_clock_gettime(clk_id, tp);
     }
 
@@ -446,11 +488,83 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
 }
 
 //
-// gettimeofday: 返回真实挂钟时间（不修改，保持真实时间）
-// 加速通过修改 sleep/usleep 的等待时间来实现
+// gettimeofday: 返回挂钟时间，受 hook_wallclock 开关控制
+// 使用基准时间法缩放，并保持单调性。算法与 hooked_clock_gettime 一致，
+// 但使用挂钟专属状态变量，避免与单调时钟状态互相干扰。
 //
 static int hooked_gettimeofday(struct timeval *tp, void *tzp) {
-    return original_gettimeofday(tp, tzp);
+    int result = original_gettimeofday(tp, tzp);
+    if (result != 0 || tp == NULL) {
+        return result;
+    }
+
+    // 如果有时区参数，不修改（保持原样）
+    // 注意：tzp 参数现代 macOS 已废弃，通常为 NULL
+
+    bool active = speedpatch_is_active();
+    bool wallclock_hooked = speedpatch_is_wallclock_hooked();
+    float ratio = speedpatch_get_speed_ratio();
+    bool state_changed = (ratio != g_last_known_wall_ratio || active != g_last_known_wall_active);
+
+    // 不满足缩放条件：返回真实时间（但通过 offset 保持连续）
+    if (!active || !wallclock_hooked || ratio <= 0.0f || ratio == 1.0f) {
+        int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_usec * 1000;
+        if (state_changed) {
+            g_wall_time_offset_ns = g_last_wall_ns - current_real_ns;
+        }
+        int64_t new_total_ns = current_real_ns + g_wall_time_offset_ns;
+        if (new_total_ns <= g_last_wall_ns) {
+            new_total_ns = g_last_wall_ns + 1;
+        }
+        g_last_wall_ns = new_total_ns;
+        g_last_known_wall_ratio = ratio;
+        g_last_known_wall_active = active;
+
+        int64_t out_sec = new_total_ns / 1000000000LL;
+        long out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
+        if (out_nsec < 0) {
+            out_nsec += 1000000000L;
+            out_sec -= 1;
+        }
+        tp->tv_sec = (time_t)out_sec;
+        tp->tv_usec = (__darwin_suseconds_t)(out_nsec / 1000);
+        return result;
+    }
+
+    // 缩放分支
+    int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_usec * 1000;
+
+    if (state_changed) {
+        double d_ratio = (double)ratio;
+        double d_current_real_ns = (double)current_real_ns;
+        double d_last_wall_ns = (double)g_last_wall_ns;
+        double d_new_base_total_ns = (d_current_real_ns * d_ratio - d_last_wall_ns - 1.0) / (d_ratio - 1.0);
+        int64_t new_base_total_ns = (int64_t)d_new_base_total_ns;
+        g_base_wall_sec = new_base_total_ns / 1000000000LL;
+        g_base_wall_nsec = (long)(new_base_total_ns - g_base_wall_sec * 1000000000LL);
+        g_last_known_wall_ratio = ratio;
+        g_last_known_wall_active = active;
+    }
+
+    int64_t base_total_ns = (int64_t)g_base_wall_sec * 1000000000LL + (int64_t)g_base_wall_nsec;
+    int64_t delta_total_ns = current_real_ns - base_total_ns;
+    int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
+    int64_t new_total_ns = base_total_ns + adjusted_ns;
+
+    if (new_total_ns <= g_last_wall_ns) {
+        new_total_ns = g_last_wall_ns + 1;
+    }
+    g_last_wall_ns = new_total_ns;
+
+    int64_t out_sec = new_total_ns / 1000000000LL;
+    long out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
+    if (out_nsec < 0) {
+        out_nsec += 1000000000L;
+        out_sec -= 1;
+    }
+    tp->tv_sec = (time_t)out_sec;
+    tp->tv_usec = (__darwin_suseconds_t)(out_nsec / 1000);
+    return result;
 }
 
 //
@@ -527,12 +641,20 @@ static clock_t hooked_clock(void) {
 
 //
 // CFAbsoluteTimeGetCurrent: 返回当前绝对时间（相对 2001-01-01 00:00:00 GMT）
-// 决定：挂钟时间不做变速，避免破坏绝对时间调度。
-// 保留函数签名以维持 fishhook rebinding 表不变，内部直接调用原始实现。
+// 基于 hooked_gettimeofday 实现，与挂钟时间 hook 行为保持一致。
+// 保留函数签名以维持 fishhook rebinding 表不变。
 //
 static double hooked_CFAbsoluteTimeGetCurrent(void) {
-    // 决定：挂钟时间不做变速，避免破坏绝对时间调度。
-    return original_CFAbsoluteTimeGetCurrent();
+    struct timeval tv;
+    if (hooked_gettimeofday(&tv, NULL) != 0) {
+        // fallback：返回真实时间
+        return original_CFAbsoluteTimeGetCurrent();
+    }
+    // CFAbsoluteTime 相对 2001-01-01 00:00:00 GMT
+    // Unix time 相对 1970-01-01 00:00:00 GMT
+    // 差值 = 978307200.0 秒
+    double unix_time = (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+    return unix_time - 978307200.0;
 }
 
 // ============================================================================
@@ -555,6 +677,15 @@ static void speedpatch_init_time_base(void) {
             g_base_clock_gettime_sec  = (int64_t)tp.tv_sec;
             g_base_clock_gettime_nsec = (long)tp.tv_nsec;
             g_last_clock_ns = (int64_t)tp.tv_sec * 1000000000LL + (int64_t)tp.tv_nsec;
+        }
+    }
+
+    if (original_gettimeofday != NULL) {
+        struct timeval tv;
+        if (original_gettimeofday(&tv, NULL) == 0) {
+            g_base_wall_sec = (int64_t)tv.tv_sec;
+            g_base_wall_nsec = (long)tv.tv_usec * 1000;
+            g_last_wall_ns = (int64_t)tv.tv_sec * 1000000000LL + (int64_t)tv.tv_usec * 1000;
         }
     }
 
