@@ -14,6 +14,7 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <errno.h>
+#include <math.h>
 
 #include "fishhook.h"
 
@@ -268,6 +269,8 @@ typedef unsigned int (*sleep_t)(unsigned int seconds);
 typedef int (*usleep_t)(useconds_t usec);
 typedef clock_t (*clock_t_func_t)(void);
 typedef double (*CFAbsoluteTimeGetCurrent_t)(void);
+typedef int (*nanosleep_t)(const struct timespec *req, struct timespec *rem);
+typedef time_t (*time_t_func_t)(time_t *tloc);
 
 static mach_absolute_time_t original_mach_absolute_time = NULL;
 static clock_gettime_t original_clock_gettime = NULL;
@@ -276,6 +279,8 @@ static sleep_t original_sleep = NULL;
 static usleep_t original_usleep = NULL;
 static clock_t_func_t original_clock = NULL;
 static CFAbsoluteTimeGetCurrent_t original_CFAbsoluteTimeGetCurrent = NULL;
+static nanosleep_t original_nanosleep = NULL;
+static time_t_func_t original_time = NULL;
 
 //
 // mach_absolute_time: 返回系统启动后的绝对时间（单位依赖 mach_timebase_info）
@@ -380,20 +385,29 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
 
     bool active = speedpatch_is_active();
     float ratio = speedpatch_get_speed_ratio();
-    bool state_changed = (ratio != g_last_known_ratio || active != g_last_known_active);
+
+    // 根据时钟类型选择状态变量（CLOCK_REALTIME 使用挂钟专属变量，避免串扰）
+    float *p_last_ratio = is_realtime ? &g_last_known_wall_ratio : &g_last_known_ratio;
+    bool *p_last_active = is_realtime ? &g_last_known_wall_active : &g_last_known_active;
+    int64_t *p_last_ns = is_realtime ? &g_last_wall_ns : &g_last_clock_ns;
+    int64_t *p_offset_ns = is_realtime ? &g_wall_time_offset_ns : &g_clock_time_offset_ns;
+    int64_t *p_base_sec = is_realtime ? &g_base_wall_sec : &g_base_clock_gettime_sec;
+    long *p_base_nsec = is_realtime ? &g_base_wall_nsec : &g_base_clock_gettime_nsec;
+
+    bool state_changed = (ratio != *p_last_ratio || active != *p_last_active);
 
     if (!active) {
         int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
         if (state_changed) {
-            g_clock_time_offset_ns = g_last_clock_ns - current_real_ns;
+            *p_offset_ns = *p_last_ns - current_real_ns;
         }
-        int64_t new_total_ns = current_real_ns + g_clock_time_offset_ns;
-        if (new_total_ns <= g_last_clock_ns) {
-            new_total_ns = g_last_clock_ns + 1;
+        int64_t new_total_ns = current_real_ns + *p_offset_ns;
+        if (new_total_ns <= *p_last_ns) {
+            new_total_ns = *p_last_ns + 1;
         }
-        g_last_clock_ns = new_total_ns;
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
+        *p_last_ns = new_total_ns;
+        *p_last_ratio = ratio;
+        *p_last_active = active;
 
         int64_t out_sec  = new_total_ns / 1000000000LL;
         long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
@@ -415,15 +429,15 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     if (ratio <= 0.0f || ratio == 1.0f) {
         int64_t current_real_ns = (int64_t)tp->tv_sec * 1000000000LL + (int64_t)tp->tv_nsec;
         if (state_changed) {
-            g_clock_time_offset_ns = g_last_clock_ns - current_real_ns;
+            *p_offset_ns = *p_last_ns - current_real_ns;
         }
-        int64_t new_total_ns = current_real_ns + g_clock_time_offset_ns;
-        if (new_total_ns <= g_last_clock_ns) {
-            new_total_ns = g_last_clock_ns + 1;
+        int64_t new_total_ns = current_real_ns + *p_offset_ns;
+        if (new_total_ns <= *p_last_ns) {
+            new_total_ns = *p_last_ns + 1;
         }
-        g_last_clock_ns = new_total_ns;
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
+        *p_last_ns = new_total_ns;
+        *p_last_ratio = ratio;
+        *p_last_active = active;
 
         int64_t out_sec  = new_total_ns / 1000000000LL;
         long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
@@ -447,28 +461,28 @@ static int hooked_clock_gettime(clockid_t clk_id, struct timespec *tp) {
     if (state_changed) {
         double d_ratio = (double)ratio;
         double d_current_real_ns = (double)current_real_ns;
-        double d_last_clock_ns = (double)g_last_clock_ns;
-        double d_new_base_total_ns = (d_current_real_ns * d_ratio - d_last_clock_ns - 1.0) / (d_ratio - 1.0);
+        double d_last_ns = (double)*p_last_ns;
+        double d_new_base_total_ns = (d_current_real_ns * d_ratio - d_last_ns - 1.0) / (d_ratio - 1.0);
         int64_t new_base_total_ns = (int64_t)d_new_base_total_ns;
-        g_base_clock_gettime_sec = new_base_total_ns / 1000000000LL;
-        g_base_clock_gettime_nsec = (long)(new_base_total_ns - g_base_clock_gettime_sec * 1000000000LL);
-        g_last_known_ratio = ratio;
-        g_last_known_active = active;
+        *p_base_sec = new_base_total_ns / 1000000000LL;
+        *p_base_nsec = (long)(new_base_total_ns - *p_base_sec * 1000000000LL);
+        *p_last_ratio = ratio;
+        *p_last_active = active;
     }
 
     int64_t base_total_ns =
-        (int64_t)g_base_clock_gettime_sec * 1000000000LL +
-        (int64_t)g_base_clock_gettime_nsec;
+        (int64_t)*p_base_sec * 1000000000LL +
+        (int64_t)*p_base_nsec;
     int64_t delta_total_ns = current_real_ns - base_total_ns;
 
     int64_t adjusted_ns = (int64_t)((double)delta_total_ns * (double)ratio);
     int64_t new_total_ns = base_total_ns + adjusted_ns;
 
-    if (new_total_ns <= g_last_clock_ns) {
-        new_total_ns = g_last_clock_ns + 1;
+    if (new_total_ns <= *p_last_ns) {
+        new_total_ns = *p_last_ns + 1;
     }
 
-    g_last_clock_ns = new_total_ns;
+    *p_last_ns = new_total_ns;
 
     int64_t out_sec  = new_total_ns / 1000000000LL;
     long    out_nsec = (long)(new_total_ns - out_sec * 1000000000LL);
@@ -621,6 +635,71 @@ static int hooked_usleep(useconds_t usec) {
 }
 
 //
+// nanosleep: 按 speed_ratio 缩短休眠时间（加速 = 睡得更少）
+// 覆盖 Qt QThread::msleep、GCD dispatch_after 底层休眠等场景
+//
+static int hooked_nanosleep(const struct timespec *req, struct timespec *rem) {
+    if (!speedpatch_is_active() || req == NULL) {
+        return original_nanosleep(req, rem);
+    }
+
+    float ratio = speedpatch_get_speed_ratio();
+    if (ratio <= 0.0f || ratio == 1.0f) {
+        return original_nanosleep(req, rem);
+    }
+
+    // 按 1/ratio 缩放休眠时间
+    double scaled_sec = (double)req->tv_sec / (double)ratio;
+    double scaled_nsec = (double)req->tv_nsec / (double)ratio;
+
+    // 归一化纳秒到 0-999999999
+    scaled_sec += floor(scaled_nsec / 1000000000.0);
+    scaled_nsec = fmod(scaled_nsec, 1000000000.0);
+    if (scaled_nsec < 0) {
+        scaled_nsec += 1000000000.0;
+        scaled_sec -= 1.0;
+    }
+
+    struct timespec scaled_req;
+    scaled_req.tv_sec = (time_t)scaled_sec;
+    scaled_req.tv_nsec = (long)scaled_nsec;
+
+    if (scaled_req.tv_sec == 0 && scaled_req.tv_nsec == 0) {
+        scaled_req.tv_nsec = 1;  // 至少休眠 1ns 避免忙等
+    }
+
+    return original_nanosleep(&scaled_req, rem);
+}
+
+//
+// time: 返回当前时间戳 (time_t)
+// 受 hook_wallclock 开关控制，复用 hooked_gettimeofday 的缩放逻辑
+//
+static time_t hooked_time(time_t *tloc) {
+    bool active = speedpatch_is_active();
+    bool wallclock_hooked = speedpatch_is_wallclock_hooked();
+    float ratio = speedpatch_get_speed_ratio();
+
+    // 不满足缩放条件：透传原函数
+    if (!active || !wallclock_hooked || ratio <= 0.0f || ratio == 1.0f) {
+        return original_time(tloc);
+    }
+
+    // 满足缩放条件：通过 hooked_gettimeofday 获取缩放后的时间
+    struct timeval tv;
+    int result = hooked_gettimeofday(&tv, NULL);
+    if (result != 0) {
+        return original_time(tloc);
+    }
+
+    time_t scaled_time = (time_t)tv.tv_sec;
+    if (tloc != NULL) {
+        *tloc = scaled_time;
+    }
+    return scaled_time;
+}
+
+//
 // clock: 返回进程 CPU 时间
 // 被 hook 后，如果 speed_ratio != 1.0，返回被缩放的 CPU 时间
 //
@@ -711,6 +790,8 @@ static void speedpatch_hook_time_functions(void) {
         {"usleep", hooked_usleep, (void**)&original_usleep},
         {"clock", hooked_clock, (void**)&original_clock},
         {"CFAbsoluteTimeGetCurrent", hooked_CFAbsoluteTimeGetCurrent, (void**)&original_CFAbsoluteTimeGetCurrent},
+        {"nanosleep", hooked_nanosleep, (void**)&original_nanosleep},
+        {"time", hooked_time, (void**)&original_time},
     };
 
     int result = rebind_symbols(rebindings, sizeof(rebindings) / sizeof(rebindings[0]));

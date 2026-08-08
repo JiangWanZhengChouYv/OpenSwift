@@ -378,7 +378,7 @@ extension SpeedControlPanel {
             
             Spacer()
             
-            Text("OpenSwift v1.0")
+            Text("OpenSwift v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
