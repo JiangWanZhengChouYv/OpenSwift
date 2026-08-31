@@ -213,6 +213,80 @@ swiftlint lint --strict
 
 Issues and Pull Requests are welcome!
 
+### Developing Plugins
+
+OpenSwift can be extended through **plugins** — without changing the main app, a folder with `manifest.yml` + `main.js` lets you implement behaviors such as "auto set a fixed speed when a certain app starts".
+
+> Plugins use three layers that can be combined as needed:
+> - **L1 declaration layer** (`manifest.yml`, zero code): UI toggles/buttons, target-app matching, script entry
+> - **L2 logic layer** (`main.js`): behavior written with the host-injected `openSwift.*` bridge API (implemented)
+> - **L3 native extension layer** (`hooklib.dylib`): deep injection / speed adaptation (reserved, not yet implemented)
+
+#### 1. Directory layout
+
+```
+<plugin-id>/
+├── manifest.yml   # required, L1 declaration
+└── main.js        # optional, L2 logic script
+```
+
+#### 2. Write manifest.yml (L1 declaration)
+
+```yaml
+id: com.openswift.plugin.example        # globally unique
+name: Example Plugin
+version: 1.0.0
+min_app_version: 0.1.0
+description: One-line description
+script: main.js                          # relative path to the script
+
+ui:                                      # L1: rendered as plugin controls
+  - type: toggle                         # toggle | button
+    key: enable_auto_speed
+    label: Enable auto fixed speed
+    default: true
+
+targets:                                 # L1: target-app matching (optional)
+  - process: TimerTestApp
+```
+
+#### 3. Write main.js (L2 logic)
+
+Use the `openSwift` global object injected by the host:
+
+```js
+openSwift.log("plugin loaded");
+
+openSwift.onProcessLaunch(function(info) {
+    // info = { pid, appName, appURL }
+    if (openSwift.getConfig("enable_auto_speed") === false) return;
+    openSwift.setSpeed(info.pid, 3.0);
+});
+```
+
+Available `openSwift` bridge methods:
+
+| Method | Purpose |
+| --- | --- |
+| `log(msg)` | Print a log line to OSLog for debugging |
+| `onProcessLaunch(callback)` | Called when a new process launches; callback receives `{ pid, appName, appURL }` |
+| `setSpeed(pid, ratio)` | Set the process speed ratio and **automatically enable** speed control |
+| `getConfig(key)` | Read a plugin UI toggle value (L1 ↔ L2 coupling) |
+
+#### 4. Package as a zip and import
+
+The zip must have the plugin directory at its top level (containing `manifest.yml`):
+
+```bash
+cd plugin/test
+rm -f startup_fixed_speed.zip
+zip -r startup_fixed_speed.zip startup_fixed_speed
+```
+
+Then open the OpenSwift **Plugins** panel → **Import Plugin** and choose the zip to install and enable it. Restart the app to verify the toggle state persists and the script takes effect.
+
+> Reference implementation: `plugin/test/startup_fixed_speed/` — an example plugin that auto-applies 3.0x to any app it launches.
+
 ---
 
 ## License
