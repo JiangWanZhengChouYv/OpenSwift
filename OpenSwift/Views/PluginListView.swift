@@ -22,8 +22,12 @@ struct PluginListView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Divider()
+
+            PluginMarketSection()
         }
-        .frame(minWidth: 520, minHeight: 380)
+        .frame(minWidth: 520, minHeight: 460)
         .alert("导入插件失败", isPresented: $showImportError) {
             Button("好", role: .cancel) {}
         } message: {
@@ -244,6 +248,10 @@ private struct PluginRow: View {
             toggleControl(for: element)
         case "button":
             buttonControl(for: element)
+        case "text":
+            textControl(for: element)
+        case "number":
+            numberControl(for: element)
         default:
             EmptyView()
         }
@@ -276,5 +284,47 @@ private struct PluginRow: View {
         }
         .font(.system(size: 12))
         .disabled(!hasScript)
+    }
+
+    private func textControl(for element: PluginUIElement) -> some View {
+        let text = Binding<String>(
+            get: {
+                let configuredValue = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
+                if case .string(let value)? = configuredValue {
+                    return value
+                }
+                if case .string(let value)? = element.defaultValue {
+                    return value
+                }
+                return ""
+            },
+            set: { newValue in
+                PluginStore.shared.setConfig(.string(newValue), forKey: element.key, pluginID: plugin.id)
+            }
+        )
+        return TextField(element.label ?? element.key, text: text)
+            .font(.system(size: 12))
+    }
+
+    private func numberControl(for element: PluginUIElement) -> some View {
+        let number = Binding<String>(
+            get: {
+                let configuredValue = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
+                if case .number(let value)? = configuredValue {
+                    return String(format: "%.3f", value)
+                }
+                if case .number(let value)? = element.defaultValue {
+                    return String(format: "%.3f", value)
+                }
+                return ""
+            },
+            set: { newValue in
+                if let value = Double(newValue) {
+                    PluginStore.shared.setConfig(.number(value), forKey: element.key, pluginID: plugin.id)
+                }
+            }
+        )
+        return TextField(element.label ?? element.key, text: number)
+            .font(.system(size: 12))
     }
 }
