@@ -102,6 +102,7 @@ class AppState {
         ProcessHistory.shared.setup()
         ProcessManagerProvider.shared.manager.setup()
         CLIManager.shared.setup()
+        PluginStore.shared.setup()
         
         logInfo("OpenSwift launched successfully", log: .openswift)
     }

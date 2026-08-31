@@ -62,6 +62,21 @@ struct FirstLaunchView: View {
             ]
         ),
         FirstLaunchStep(
+            icon: "puzzlepiece.fill",
+            title: "插件",
+            description: "OpenSwift 支持通过插件扩展能力，您可以从顶部工具条统一管理。",
+            features: [
+                "顶部工具条新增\"插件\"入口",
+                "可导入插件 zip 包识别并展示",
+                "官方插件开发目录：plugin/"
+            ],
+            details: [
+                "• 入口位于顶部工具条\"新手引导\"按钮右侧，点击可查看已导入插件",
+                "• 导入：选择插件 zip 包，App 会解析其 manifest 并加入列表",
+                "• plugin/ 官方插件目录使用本地 git，不推送远程，且已被主仓库 .gitignore 忽略"
+            ]
+        ),
+        FirstLaunchStep(
             icon: "checkmark.circle.fill",
             title: "开始使用",
             description: "您已经准备好开始使用 OpenSwift 了！",

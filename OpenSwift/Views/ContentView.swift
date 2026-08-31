@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var showProcessList: Bool = true
     @State private var showHotkeySettings: Bool = false
+    @State private var showPluginList: Bool = false
     @State private var showMinimizeTip: Bool = false
     @State private var showFirstLaunch: Bool = false
     @State private var selectedTab: Int = 1
@@ -54,8 +55,23 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
                     .help("查看新手引导")
+                    
+                    Button(action: {
+                        showPluginList = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "puzzlepiece.fill")
+                            Text("插件")
+                        }
+                        .font(.system(size: 12))
+                    }
+                    .buttonStyle(.bordered)
+                    .help("管理已导入的插件")
                 }
             }
+        }
+        .sheet(isPresented: $showPluginList) {
+            PluginListView()
         }
         .sheet(isPresented: $showHotkeySettings) {
             HotkeySettingsView(onDismiss: {
