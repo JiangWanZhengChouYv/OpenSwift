@@ -252,6 +252,8 @@ private struct PluginRow: View {
             textControl(for: element)
         case "number":
             numberControl(for: element)
+        case "list":
+            PluginScheduleEditor(pluginID: plugin.id, key: element.key, label: element.label)
         default:
             EmptyView()
         }
