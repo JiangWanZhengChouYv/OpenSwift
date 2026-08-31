@@ -26,7 +26,7 @@ extension PluginRuntime {
                 logError("setSpeed 未找到 pid \(processID) 对应的进程", log: .openswift)
                 return
             }
-            AppLauncherViewModel.shared.updateSpeed(ratio, for: process)
+            AppLauncherViewModel.shared.setSpeedAndEnabled(ratio, for: process)
         } as @convention(block) (Int, Double) -> Void, forKeyedSubscript: "setSpeed")
 
         // openSwift.getConfig(key)：读取该插件的运行时配置并转成 JS 值。

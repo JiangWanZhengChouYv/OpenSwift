@@ -8,6 +8,7 @@ import AppKit
 // 2. 所有对 launchedProcesses 数组的读写都通过 stateQueue 串行化，
 //    避免 SwiftUI 在主线程刷新时与后台计时器刷新发生数据竞争。
 // 3. Timer 在主线程创建，闭包中使用 [weak self]。
+// swiftlint:disable type_body_length
 class AppLauncherViewModel: ObservableObject {
     static let shared = AppLauncherViewModel()
 
@@ -195,6 +196,25 @@ class AppLauncherViewModel: ObservableObject {
         }
     }
 
+    /// 设速的同时启用该进程的速度控制（写 is_active=1），供插件桥 `openSwift.setSpeed` 调用。
+    func setSpeedAndEnabled(_ speed: Double, for process: LaunchedProcess) {
+        updateProcessState(for: process.id) { current in
+            var mutable = current
+            if !mutable.speedController.isConnected {
+                let success = mutable.speedController.attachToProcess(pid: process.pid)
+                if !success {
+                    logError("Failed to attach to process \(process.pid) before setting speed", log: .launcher)
+                    return nil
+                }
+            }
+            _ = mutable.speedController.setEnabled(true)
+            _ = mutable.speedController.setSpeedRatio(Float(speed))
+            mutable.isSpeedControlEnabled = true
+            mutable.currentSpeed = speed
+            return mutable
+        }
+    }
+
     func toggleSpeedControl(_ enabled: Bool, for process: LaunchedProcess) {
         updateProcessState(for: process.id) { current in
             var mutable = current
@@ -357,3 +377,4 @@ class AppLauncherViewModel: ObservableObject {
         }
     }
 }
+// swiftlint:enable type_body_length
