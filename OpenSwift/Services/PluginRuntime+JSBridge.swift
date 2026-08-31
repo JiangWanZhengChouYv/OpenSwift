@@ -1,6 +1,12 @@
 import Foundation
 import JavaScriptCore
 
+/// 为插件 JS 提供 setTimeout/clearTimeout 的宿主定时器容器。
+private final class JSTimerBox {
+    var timers: [Int: Timer] = [:]
+    var counter: Int = 0
+}
+
 extension PluginRuntime {
     /// 向指定插件的 JSContext 注入宿主桥 `openSwift`。
     func injectBridge(context: JSContext, pluginID: String) {
@@ -46,5 +52,29 @@ extension PluginRuntime {
         } as @convention(block) (String) -> JSValue, forKeyedSubscript: "getConfig")
 
         context.setObject(bridge, forKeyedSubscript: "openSwift" as NSString)
+
+        injectTimers(context: context)
+    }
+
+    /// JSContext 默认没有 setTimeout/clearTimeout，这里用宿主 Timer 注入，
+    /// 供插件做定时/分段调度（如定时调整倍率按「倍率-时长」分段走）。
+    private func injectTimers(context: JSContext) {
+        let timerBox = JSTimerBox()
+
+        context.setObject({ (function: JSValue, delay: Double) -> Int in
+            timerBox.counter += 1
+            let id = timerBox.counter
+            let timer = Timer(timeInterval: max(delay, 0) / 1000.0, repeats: false) { _ in
+                timerBox.timers.removeValue(forKey: id)
+                DispatchQueue.main.async { function.call(withArguments: []) }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            timerBox.timers[id] = timer
+            return id
+        } as @convention(block) (JSValue, Double) -> Int, forKeyedSubscript: "setTimeout" as NSString)
+
+        context.setObject({ (id: Int) in
+            timerBox.timers.removeValue(forKey: id)?.invalidate()
+        } as @convention(block) (Int) -> Void, forKeyedSubscript: "clearTimeout" as NSString)
     }
 }

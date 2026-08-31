@@ -78,6 +78,12 @@ class PluginStore: ObservableObject {
         }
         plugins[index].isEnabled = enabled
         save()
+        // 与运行时联动：关闭则卸载脚本（彻底不再执行/响应启动事件），打开则重新加载。
+        if enabled {
+            PluginRuntime.shared.reloadAll()
+        } else {
+            PluginRuntime.shared.unload(pluginID: id)
+        }
     }
 
     /// 写入插件的运行时配置值并持久化。
