@@ -197,8 +197,9 @@ class AppLauncherViewModel: ObservableObject {
     }
 
     /// 设速的同时启用该进程的速度控制（写 is_active=1），供插件桥 `openSwift.setSpeed` 调用。
-    func setSpeedAndEnabled(_ speed: Double, for process: LaunchedProcess) {
-        updateProcessState(for: process.id) { current in
+    @discardableResult
+    func setSpeedAndEnabled(_ speed: Double, for process: LaunchedProcess) -> Bool {
+        return updateProcessState(for: process.id) { current in
             var mutable = current
             if !mutable.speedController.isConnected {
                 let success = mutable.speedController.attachToProcess(pid: process.pid)
@@ -207,6 +208,8 @@ class AppLauncherViewModel: ObservableObject {
                     return nil
                 }
             }
+            // 启动加速必须以挂钟时间 hook 为前提，保证调整倍率真正生效。
+            _ = mutable.speedController.setHookWallclock(true)
             _ = mutable.speedController.setEnabled(true)
             _ = mutable.speedController.setSpeedRatio(Float(speed))
             mutable.isSpeedControlEnabled = true
@@ -363,10 +366,11 @@ class AppLauncherViewModel: ObservableObject {
         return stateQueue.sync { launchedProcesses.first { $0.id == id } }
     }
 
-    func updateProcessState(for id: UUID, mutator: (LaunchedProcess) -> LaunchedProcess?) {
+    @discardableResult
+    func updateProcessState(for id: UUID, mutator: (LaunchedProcess) -> LaunchedProcess?) -> Bool {
         var snapshot: [LaunchedProcess] = stateQueue.sync { launchedProcesses }
-        guard let index = snapshot.firstIndex(where: { $0.id == id }) else { return }
-        guard let updated = mutator(snapshot[index]) else { return }
+        guard let index = snapshot.firstIndex(where: { $0.id == id }) else { return false }
+        guard let updated = mutator(snapshot[index]) else { return false }
         snapshot[index] = updated
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -375,6 +379,7 @@ class AppLauncherViewModel: ObservableObject {
                 self.selectedLaunchedProcess = updated
             }
         }
+        return true
     }
 }
 // swiftlint:enable type_body_length

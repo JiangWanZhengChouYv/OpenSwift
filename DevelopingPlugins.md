@@ -41,7 +41,7 @@ script: main.js
 
 ### 1.2 控件声明 `ui`
 
-`ui` 是一个数组，每项定义一个控件。当前支持 **四种类型**：
+`ui` 是一个数组，每项定义一个控件。当前支持 **五种类型**：
 
 | `type` | 控件 | 读写配置类型 | 说明 |
 | --- | --- | --- | --- |
@@ -49,6 +49,7 @@ script: main.js
 | `button` | 按钮 | 无 | 点击触发脚本中同名函数 |
 | `text` | 单行输入框 | string | 任意文本；**空串合法**（常用于表示"对所有有效"） |
 | `number` | 数值输入框 | number(double) | 数值；非法输入会被忽略 |
+| `list` | 方案列表编辑器 | 一段 JSON 字符串 | 可增删多行记录，每行含若干**分段**；供按进程做定时变速等配置 |
 
 每个控件支持的字段：
 
@@ -57,9 +58,10 @@ script: main.js
 | `type` | 是 | string | 见上表 |
 | `key` | 是 | string | 控件唯一键，也是脚本里 `openSwift.getConfig(key)` 读取的键 |
 | `label` | 否 | string | 控件显示文案；缺省显示 `key` |
-| `default` | 否 | 见类型 | 默认值。toggle→布尔；text→字符串；number→数值；button 无 |
+| `default` | 否 | 见类型 | 默认值。toggle→布尔；text→字符串；number→数值；button 无；list 无单独 default（内容由编辑器生成） |
 
 配置值类型（`default` 与 `getConfig` 返回值支持的）：`string`、`bool`、`integer`、`number(double)`。
+`list` 控件的配置值类型固定为 `string`，内容是一段 JSON 数组，脚本里需 `JSON.parse` 后再用。
 
 示例（目标 + 倍率 + 开关）：
 
@@ -83,6 +85,46 @@ ui:
 ```
 
 > 未知 `type` 会被安全忽略（渲染为空），不会导致插件加载失败。
+
+#### `list` 控件（方案列表编辑器）
+
+`list` 控件在面板中渲染为一个**可增删的列表**，每一行是"一个方案"，每行内含若干"分段"。它适合表达"按进程的倍率-时长分段自动变速"这类多行结构化配置。
+
+manifest 声明示例：
+
+```yaml
+ui:
+  - type: list
+    key: plans
+    label: 定时方案
+```
+
+编辑器内每行方案包含的字段：
+
+| 行内字段 | 控件 | 说明 |
+| --- | --- | --- |
+| `process` | 文本输入 | 目标进程名（用于 `onProcessLaunch` 时与 `appName` 匹配） |
+| `name` | 文本输入 | 方案名称（备注用） |
+| `save` | 开关 | 是否启用该方案（false 时脚本跳过） |
+| `segments` | 可增删列表 | 每段含 `ratio`（倍率）+ `duration`（持续秒数） |
+
+持久化的配置值是一段 JSON 数组（字符串），结构如下：
+
+```json
+[
+  {
+    "process": "TimerTestApp",
+    "save": true,
+    "name": "前快后稳",
+    "segments": [
+      { "ratio": 3.0, "duration": 5 },
+      { "ratio": 1.0, "duration": 60 }
+    ]
+  }
+]
+```
+
+脚本里用 `JSON.parse(openSwift.getConfig("plans"))` 读取，并按需调度（例如用 `setTimeout` 依序设速，见 §2.3 示例与仓库内 `schedule_ratio` 插件）。无法解析时 `JSON.parse` 会抛错，建议先判断配置非空再解析。
 
 ### 1.3 目标匹配 `targets`
 
@@ -120,7 +162,7 @@ targets:
 | --- | --- | --- | --- |
 | `log` | `log(msg: string)` | — | 打印调试日志（OSLog），便于排查 |
 | `onProcessLaunch` | `onProcessLaunch(callback)` | — | 注册回调，检测到新进程启动时调用 |
-| `setSpeed` | `setSpeed(pid: number, ratio: number)` | — | 把指定进程设为倍率，并 **自动启用**速度控制（`is_active` 一并激活） |
+| `setSpeed` | `setSpeed(pid: number, ratio: number)` | — | 把指定进程设为倍率，并 **自动启动加速**（会 attach + 开启挂钟时间 hook `hook_wallclock` + 写入 `is_active=1`）。即插件无需先手动"启动加速"，一次 `setSpeed` 即完成启动与设速 |
 | `getConfig` | `getConfig(key: string)` | `boolean \| string \| number \| undefined` | 读取插件 UI 控件的当前值（L1 ↔ L2 联动） |
 
 ### 2.2 回调参数 `info`（onProcessLaunch）
@@ -155,7 +197,7 @@ openSwift.onProcessLaunch(function (info) {
 });
 ```
 
-**`openSwift.setSpeed(pid, ratio)`** — 设速。`ratio` 为倍率（如 `3.0` 表示 3 倍速，`0.5` 表示半速）。该调用会**自动启用**该进程的速度控制（等价于"设倍率 + 打开开关"）：
+**`openSwift.setSpeed(pid, ratio)`** — 设速。`ratio` 为倍率（如 `3.0` 表示 3 倍速，`0.5` 表示半速）。该调用会**自动启动加速**（attach + 开启挂钟时间 hook + 写入 `is_active`），等价于"设倍率 + 启动加速"：
 
 ```js
 openSwift.setSpeed(1234, 3.0);
@@ -166,6 +208,36 @@ openSwift.setSpeed(1234, 3.0);
 ```js
 var enabled = openSwift.getConfig("enable_auto_speed"); // true/false/undefined
 var ratio = Number(openSwift.getConfig("speed_ratio")); // 3.0
+```
+
+**结合 `list` 控件做定时变速**：读取 JSON 数组，命中进程后用 `setTimeout` 按"倍率-时长"分段设速，最后复位到 1.0×：
+
+```js
+openSwift.onProcessLaunch(function (info) {
+    var raw = openSwift.getConfig("plans");
+    if (!raw) { return; }
+    var plans;
+    try { plans = JSON.parse(raw); } catch (e) { return; }
+    plans.forEach(function (plan) {
+        if (plan.save === false) { return; }
+        if (!info.appName || info.appName.indexOf(plan.process) < 0) { return; }
+        schedule(info.pid, plan.segments);
+    });
+});
+
+function schedule(pid, segments) {
+    if (!segments || segments.length === 0) { return; }
+    var i = 0;
+    (function next() {
+        if (i >= segments.length) {
+            openSwift.setSpeed(pid, 1.0); // 全段结束，复位 1.0×
+            return;
+        }
+        var seg = segments[i++];
+        openSwift.setSpeed(pid, Number(seg.ratio)); // 先启动加速并设当前段倍率
+        setTimeout(next, Number(seg.duration) * 1000);
+    })();
+}
 ```
 
 ---
