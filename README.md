@@ -252,77 +252,9 @@ OpenSpeedy-Mac/
 
 ### 开发插件
 
-OpenSwift 支持通过「插件」扩展能力：无需改主程序，用一个目录 + `manifest.yml` + `main.js` 即可实现如"启动某软件自动固定倍率"这类行为。
+OpenSwift 支持通过「插件」扩展能力，无需修改主程序。完整开发指南（`manifest.yml` 语法、受支持的 L1 控件、`openSwift.*` 脚本 API、分发与安装）见 **[DevelopingPlugins.md](DevelopingPlugins.md)**。
 
-> 插件分三层，可按需叠加：
-> - **L1 声明层**（`manifest.yml`，零代码）：UI 开关/按钮、目标软件匹配、脚本入口
-> - **L2 逻辑层**（`main.js`）：用宿主注入的 `openSwift.*` 桥 API 写行为逻辑（已实现）
-> - **L3 原生扩展层**（`hooklib.dylib`）：深度注入/加速适配（预留，未实现）
-
-#### 1. 目录结构
-
-```
-<plugin-id>/
-├── manifest.yml   # 必填，L1 声明
-└── main.js        # 可选，L2 逻辑脚本
-```
-
-#### 2. 编写 manifest.yml（L1 声明）
-
-```yaml
-id: com.openswift.plugin.example        # 全局唯一
-name: 示例插件
-version: 1.0.0
-min_app_version: 0.1.0
-description: 一句话描述
-script: main.js                          # 指向脚本文件（相对插件目录）
-
-ui:                                      # L1：会渲染为插件的开关/按钮
-  - type: toggle                         # toggle | button
-    key: enable_auto_speed
-    label: 启用自动固定速度
-    default: true
-
-targets:                                 # L1：目标软件匹配（可选）
-  - process: TimerTestApp
-```
-
-#### 3. 编写 main.js（L2 逻辑）
-
-使用宿主自动注入的全局对象 `openSwift`：
-
-```js
-openSwift.log("plugin loaded");
-
-openSwift.onProcessLaunch(function(info) {
-    // info = { pid, appName, appURL }
-    if (openSwift.getConfig("enable_auto_speed") === false) return;
-    openSwift.setSpeed(info.pid, 3.0);
-});
-```
-
-宿主桥 `openSwift` 现有方法：
-
-| 方法 | 作用 |
-| --- | --- |
-| `log(msg)` | 打印日志到 OSLog，便于排查 |
-| `onProcessLaunch(callback)` | 有新进程启动时触发，回调参数 `{ pid, appName, appURL }` |
-| `setSpeed(pid, ratio)` | 把指定进程设为倍率，并**自动启用**速度控制 |
-| `getConfig(key)` | 读取插件 UI 开关当前值（L1 与 L2 联动） |
-
-#### 4. 打包成 zip 并导入
-
-`zip` 顶层需为插件目录（内含 `manifest.yml`）：
-
-```bash
-cd plugin/test
-rm -f startup_fixed_speed.zip
-zip -r startup_fixed_speed.zip startup_fixed_speed
-```
-
-然后在 OpenSwift「插件」面板 →「导入插件」选择该 zip 即可安装启用。可在导入后重启应用验证开关状态与脚本是否生效。
-
-> 参考实现见 `plugin/test/startup_fixed_speed/`（启动任意软件自动设 3.0x 的示例插件）。
+> 参考实现：`plugin/test/startup_fixed_speed/`。
 
 ---
 
