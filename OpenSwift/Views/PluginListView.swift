@@ -161,53 +161,120 @@ private struct PluginRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "puzzlepiece.fill")
-                .font(.system(size: 16))
-                .foregroundColor(plugin.isEnabled ? Color(hex: "34C759") : Color.secondary)
-                .frame(width: 22)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "puzzlepiece.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(plugin.isEnabled ? Color(hex: "34C759") : Color.secondary)
+                    .frame(width: 22)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plugin.name)
-                    .font(.system(size: 13, weight: .medium))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(plugin.name)
+                        .font(.system(size: 13, weight: .medium))
 
-                if let description = plugin.manifest.descriptionText, !description.isEmpty {
-                    Text(description)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                    if let description = plugin.manifest.descriptionText, !description.isEmpty {
+                        Text(description)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            Text("v\(plugin.version)")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-
-            Toggle("", isOn: Binding(
-                get: { plugin.isEnabled },
-                set: onToggle
-            ))
-            .labelsHidden()
-            .toggleStyle(.switch)
-
-            Menu {
-                Button(action: onDelete) {
-                    Text("删除插件")
-                        .foregroundColor(.red)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
+                Text("v\(plugin.version)")
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+
+                Toggle("", isOn: Binding(
+                    get: { plugin.isEnabled },
+                    set: onToggle
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+
+                Menu {
+                    Button(action: onDelete) {
+                        Text("删除插件")
+                            .foregroundColor(.red)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("更多操作")
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("更多操作")
+
+            if !plugin.manifest.ui.isEmpty {
+                Divider()
+                    .padding(.vertical, 4)
+                controlsArea
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    private var hasScript: Bool {
+        guard let script = plugin.manifest.script else {
+            return false
+        }
+        return !script.isEmpty && plugin.isEnabled
+    }
+
+    /// 依据清单 ui 定义的动态控件区域。
+    @ViewBuilder
+    private var controlsArea: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(plugin.manifest.ui) { element in
+                configControl(for: element)
+            }
+        }
+        .padding(.leading, 34)
+    }
+
+    @ViewBuilder
+    private func configControl(for element: PluginUIElement) -> some View {
+        switch element.type {
+        case "toggle":
+            toggleControl(for: element)
+        case "button":
+            buttonControl(for: element)
+        default:
+            EmptyView()
+        }
+    }
+
+    private func toggleControl(for element: PluginUIElement) -> some View {
+        let isOn = Binding<Bool>(
+            get: {
+                let configured = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
+                if case .bool(let value)? = configured {
+                    return value
+                }
+                if case .bool(let value)? = element.defaultValue {
+                    return value
+                }
+                return false
+            },
+            set: { newValue in
+                PluginStore.shared.setConfig(.bool(newValue), forKey: element.key, pluginID: plugin.id)
+            }
+        )
+        return Toggle(element.label ?? element.key, isOn: isOn)
+            .toggleStyle(.switch)
+            .font(.system(size: 12))
+    }
+
+    private func buttonControl(for element: PluginUIElement) -> some View {
+        Button(element.label ?? element.key) {
+            PluginRuntime.shared.callExportedFunction(pluginID: plugin.id, name: element.key)
+        }
+        .font(.system(size: 12))
+        .disabled(!hasScript)
     }
 }

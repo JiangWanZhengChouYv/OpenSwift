@@ -1,6 +1,7 @@
 excluded:
   - build/
   - DerivedData/
+  - 临时/
 
 disabled_rules:
   - trailing_whitespace  # 行尾空格（不影响功能）

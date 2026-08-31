@@ -75,6 +75,23 @@ class PluginStore: ObservableObject {
         save()
     }
 
+    /// 写入插件的运行时配置值并持久化。
+    func setConfig(_ value: PluginConfigValue, forKey key: String, pluginID: String) {
+        guard let index = plugins.firstIndex(where: { $0.id == pluginID }) else {
+            return
+        }
+        plugins[index].config[key] = value
+        save()
+    }
+
+    /// 读取插件的运行时配置值；未配置时返回 nil。
+    func configValue(pluginID: String, key: String) -> PluginConfigValue? {
+        guard let plugin = plugin(withID: pluginID) else {
+            return nil
+        }
+        return plugin.config[key]
+    }
+
     func shutdown() {
         save()
         logInfo("PluginStore shutdown complete", log: .openswift)

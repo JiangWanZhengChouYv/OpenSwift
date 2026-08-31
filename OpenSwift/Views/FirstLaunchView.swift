@@ -73,7 +73,8 @@ struct FirstLaunchView: View {
             details: [
                 "• 入口位于顶部工具条\"新手引导\"按钮右侧，点击可查看已导入插件",
                 "• 导入：选择插件 zip 包，App 会解析其 manifest 并加入列表",
-                "• plugin/ 官方插件目录使用本地 git，不推送远程，且已被主仓库 .gitignore 忽略"
+                "• plugin/ 官方插件目录使用本地 git，不推送远程，且已被主仓库 .gitignore 忽略",
+                "• 带脚本的插件可自动执行行为（如启动目标应用即自动固定倍率）"
             ]
         ),
         FirstLaunchStep(
