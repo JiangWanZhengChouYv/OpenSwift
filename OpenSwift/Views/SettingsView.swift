@@ -276,11 +276,7 @@ struct AdvancedSettingsView: View {
 }
 
 struct AboutSettingsView: View {
-    private let appVersion: String = {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "\(version) (\(build))"
-    }()
+    private let appVersion: String = AppVersion.presentable
 
     var body: some View {
         ScrollView {
