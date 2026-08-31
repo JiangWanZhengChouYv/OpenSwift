@@ -42,6 +42,11 @@ class PluginStore: ObservableObject {
         plugin(withID: id) != nil
     }
 
+    /// 返回指定 id 插件已导入的版本号；未导入时返回 nil。
+    func installedVersion(id: String) -> String? {
+        plugin(withID: id)?.manifest.version
+    }
+
     /// 安装一个新插件；若 id 已存在则替换为新的实例。
     @discardableResult
     func add(_ plugin: Plugin) -> Bool {

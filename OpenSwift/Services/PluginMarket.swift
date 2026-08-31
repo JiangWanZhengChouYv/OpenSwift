@@ -13,6 +13,25 @@ final class PluginMarket: ObservableObject {
     static let releaseAPIURL =
         "https://api.github.com/repos/JiangWanZhengChouYv/OpenSwift/releases/tags/plugin"
 
+    /// 判断 `lhs` 版本是否比 `rhs` 更新。
+    /// 按 `.` 拆分后逐段比较 major→minor→patch，缺省段视为 0，可忽略前导零；
+    /// 任一段无法解析为整数时返回 false。
+    static func isVersion(_ lhs: String, newerThan rhs: String) -> Bool {
+        let lhsParts = lhs.split(separator: ".")
+        let rhsParts = rhs.split(separator: ".")
+        for index in 0..<max(lhsParts.count, rhsParts.count) {
+            let lhsValue = index < lhsParts.count ? Int(lhsParts[index]) : 0
+            let rhsValue = index < rhsParts.count ? Int(rhsParts[index]) : 0
+            guard let lhsValue, let rhsValue else {
+                return false
+            }
+            if lhsValue != rhsValue {
+                return lhsValue > rhsValue
+            }
+        }
+        return false
+    }
+
     @Published private(set) var items: [PluginMarketItem] = []
     @Published var isFetching = false
     @Published var errorMessage: String? = nil
@@ -158,12 +177,26 @@ final class PluginMarket: ObservableObject {
             let manifest = try PluginParser.parseManifest(at: directory.appendingPathComponent("manifest.yml"))
             let plugin = Plugin(manifest: manifest, sourceDirectory: directory)
             DispatchQueue.main.async {
-                PluginStore.shared.add(plugin)
+                PluginStore.shared.add(self.installedPlugin(plugin, preservingConfigFor: item.id))
                 self.finishDownloadSuccess(item)
             }
         } catch {
             finishDownloadFailure(item, message: "安装插件失败: \(error.localizedDescription)")
         }
+    }
+
+    /// 覆盖安装已有插件时，将旧插件的运行时配置迁移到新插件，避免更新后配置丢失。
+    private func installedPlugin(_ plugin: Plugin, preservingConfigFor id: String) -> Plugin {
+        guard let existing = PluginStore.shared.plugin(withID: id) else {
+            return plugin
+        }
+        let mergedConfig = existing.config.merging(plugin.config) { _, new in new }
+        return Plugin(
+            manifest: plugin.manifest,
+            sourceDirectory: plugin.sourceDirectory,
+            isEnabled: existing.isEnabled,
+            config: mergedConfig
+        )
     }
 
     private func finishDownloadSuccess(_ item: PluginMarketItem) {

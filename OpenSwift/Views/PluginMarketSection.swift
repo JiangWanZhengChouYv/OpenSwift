@@ -115,9 +115,18 @@ private struct MarketItemRow: View {
     @ViewBuilder
     private var installButton: some View {
         if store.hasPlugin(id: item.id) {
-            Text("已安装")
+            if let installed = store.installedVersion(id: item.id),
+               PluginMarket.isVersion(item.version, newerThan: installed) {
+                Button("更新 v\(item.version)") {
+                    market.downloadPlugin(item)
+                }
                 .font(.system(size: 11))
-                .foregroundColor(.secondary)
+                .buttonStyle(.bordered)
+            } else {
+                Text("已安装")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
         } else if market.downloadingPluginIDs.contains(item.id) {
             Text("下载中")
                 .font(.system(size: 11))
