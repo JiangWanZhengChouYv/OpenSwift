@@ -12,6 +12,11 @@ enum AppVersion {
         return "\(version) (\(build))"
     }()
 
+    /// 纯版本号，例如 `2.1.0`。
+    static var short: String {
+        bundleKey("CFBundleShortVersionString") ?? "未知"
+    }
+
     private static func bundleKey(_ key: String) -> String? {
         if let url = Bundle.main.url(forResource: "Info", withExtension: "plist"),
            let value = NSDictionary(contentsOf: url)?[key] as? String,
