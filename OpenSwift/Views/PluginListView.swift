@@ -214,7 +214,7 @@ private struct PluginRow: View {
                 .help("更多操作")
             }
 
-            if !plugin.manifest.ui.isEmpty {
+            if plugin.isEnabled && !plugin.manifest.ui.isEmpty {
                 Divider()
                     .padding(.vertical, 4)
                 controlsArea
