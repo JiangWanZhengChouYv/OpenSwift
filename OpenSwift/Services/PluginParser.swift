@@ -107,6 +107,7 @@ struct PluginParser {
         let descriptionText = dict["description"] as? String
         let script = dict["script"] as? String
         let hooklib = dict["hooklib"] as? String
+        let hooklibEntry = dict["hooklib_entry"] as? String
 
         let ui = try buildUI(from: dict["ui"])
         let targets = try buildTargets(from: dict["targets"])
@@ -120,7 +121,8 @@ struct PluginParser {
             ui: ui,
             targets: targets,
             script: script,
-            hooklib: hooklib
+            hooklib: hooklib,
+            hooklibEntry: hooklibEntry
         )
     }
 

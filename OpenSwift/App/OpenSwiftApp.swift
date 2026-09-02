@@ -104,6 +104,7 @@ class AppState {
         CLIManager.shared.setup()
         PluginStore.shared.setup()
         PluginRuntime.shared.setup()
+        PluginHookLibManager.shared.setup()
         
         logInfo("OpenSwift launched successfully", log: .openswift)
     }

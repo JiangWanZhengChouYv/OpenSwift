@@ -132,6 +132,8 @@ struct PluginManifest: Codable, Equatable, Identifiable {
     let targets: [PluginTarget]
     let script: String?
     let hooklib: String?
+    /// L3 原生 hooklib 的入口符号名；缺省用 `SpeedPatchRegisterHook`。
+    let hooklibEntry: String?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -143,5 +145,6 @@ struct PluginManifest: Codable, Equatable, Identifiable {
         case targets
         case script
         case hooklib
+        case hooklibEntry = "hooklib_entry"
     }
 }

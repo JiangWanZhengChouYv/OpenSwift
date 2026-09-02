@@ -178,15 +178,14 @@ class AppLauncher {
             }
 
             let appName = url.deletingPathExtension().lastPathComponent
-            logDebug("App name: \(appName)", log: .launcher)
-
+            let (dyldPath, launchEnv) = makeLaunchEnvironment(
+                dylibPath: dylibPath,
+                appName: appName,
+                bundleId: Bundle(url: url)?.bundleIdentifier
+            )
             let config = NSWorkspace.OpenConfiguration()
-            config.environment = [
-                "DYLD_INSERT_LIBRARIES": dylibPath,
-                "DYLD_FORCE_FLAT_NAMESPACE": "1"
-            ]
-
-            logDebug("DYLD_INSERT_LIBRARIES = \(dylibPath)", log: .launcher)
+            config.environment = launchEnv
+            logDebug("DYLD_INSERT_LIBRARIES = \(dyldPath)", log: .launcher)
 
             var launchError: Error?
             var launchedPID: pid_t = -1
@@ -257,10 +256,18 @@ class AppLauncher {
             let appName = url.lastPathComponent
             logDebug("Executable name: \(appName)", log: .launcher)
 
+            let extra = PluginHookLibManager.shared.hooklibPaths(forAppName: appName, bundleId: nil)
+            let dyldPath: String
+            if extra.isEmpty {
+                dyldPath = dylibPath
+            } else {
+                dyldPath = ([dylibPath] + extra).joined(separator: ":")
+            }
+
             let process = Process()
             process.executableURL = url
             process.environment = [
-                "DYLD_INSERT_LIBRARIES": dylibPath,
+                "DYLD_INSERT_LIBRARIES": dyldPath,
                 "DYLD_FORCE_FLAT_NAMESPACE": "1"
             ]
             
