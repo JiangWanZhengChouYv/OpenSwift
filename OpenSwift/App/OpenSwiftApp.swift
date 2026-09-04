@@ -59,6 +59,10 @@ struct OpenSwiftApp: App {
             }
             
             CommandGroup(after: .appInfo) {
+                Button("检查更新...") {
+                    UpdateManager.shared.checkForUpdates()
+                }
+
                 Button("快捷键设置...") {
                     AppState.shared.showHotkeySettings = true
                 }

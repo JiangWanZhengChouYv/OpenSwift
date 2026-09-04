@@ -290,6 +290,11 @@ struct AboutSettingsView: View {
                     Text("版本 \(appVersion)")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+
+                    Button(action: { UpdateManager.shared.checkForUpdates() }) {
+                        Label("检查更新", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(.top, 40)
 
