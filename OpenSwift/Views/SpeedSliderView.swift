@@ -5,7 +5,9 @@ struct SpeedSliderView: View {
     let isEnabled: Bool
     let range: ClosedRange<Double> = 0.1...15.0
     
-    @State private var isDragging: Bool = false
+    // 拖动状态用 @GestureState：由 gesture 的 .updating 驱动，
+    // 避免在 onChanged/onEnded 里给 @State 赋值（严格并发下会报 self immutable）。
+    @GestureState private var isDragging: Bool = false
     
     private let tickMarks: [Double] = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0]
 
@@ -45,20 +47,17 @@ struct SpeedSliderView: View {
                         .opacity(isEnabled ? 1.0 : 0.5)
                         .gesture(
                             DragGesture(minimumDistance: 0)
+                                .updating($isDragging) { _, state, _ in
+                                    state = isEnabled
+                                }
                                 .onChanged { drag in
                                     guard isEnabled else { return }
-                                    if !isDragging {
-                                        isDragging = true
-                                    }
 
                                     let newProgress = drag.location.x / geometry.size.width
                                     let clampedProgress = min(max(newProgress, 0), 1)
                                     // 平滑拖动：按对数标尺取连续值，不做刻度吸附。
                                     let rawSpeed = value(for: clampedProgress)
                                     speed = min(max(rawSpeed, range.lowerBound), range.upperBound)
-                                }
-                                .onEnded { _ in
-                                    isDragging = false
                                 }
                         )
                 }
