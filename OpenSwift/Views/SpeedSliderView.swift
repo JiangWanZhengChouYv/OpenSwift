@@ -55,24 +55,28 @@ struct SpeedSliderView: View {
             }
             .frame(height: 20)
             
-            HStack {
-                ForEach(tickMarks, id: \.self) { tick in
-                    VStack(spacing: 4) {
-                        Rectangle()
-                            .fill(tickColor(for: tick))
-                            .frame(width: 2, height: 6)
-                        
-                        Text(formatSpeed(tick))
-                            .font(.system(size: 10))
-                            .foregroundColor(tickColor(for: tick))
-                    }
-                    
-                    if tick != tickMarks.last {
-                        Spacer()
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                ZStack(alignment: .topLeading) {
+                    // 按值线性比例定位每个刻度，与拖动摇杆的映射一致，保证刻度与真实倍率位置对齐。
+                    ForEach(Array(tickMarks.enumerated()), id: \.element) { _, tick in
+                        let fraction = (tick - range.lowerBound) / (range.upperBound - range.lowerBound)
+                        let rawX = fraction * width
+                        let clampedX = min(max(rawX, 20), width - 28)
+                        VStack(spacing: 4) {
+                            Rectangle()
+                                .fill(tickColor(for: tick))
+                                .frame(width: 2, height: 6)
+
+                            Text(formatSpeed(tick))
+                                .font(.system(size: 10))
+                                .foregroundColor(tickColor(for: tick))
+                        }
+                        .position(x: clampedX, y: 14)
                     }
                 }
             }
-            .padding(.horizontal, 4)
+            .frame(height: 28)
         }
         .animation(.easeOut(duration: 0.15), value: isDragging)
         .opacity(isEnabled ? 1.0 : 0.5)
