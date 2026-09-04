@@ -326,7 +326,7 @@ private struct SpeedControlSection: View {
                             appLauncherViewModel.updateSpeed(newValue, for: process)
                         }
                     ),
-                    in: 0.1...10.0,
+                    in: 0.1...15.0,
                     step: 0.1
                 )
                 .disabled(!isSpeedControlEnabled)

@@ -67,7 +67,7 @@ struct SpeedIndicator: View {
     }
     
     private var progress: Double {
-        let range: ClosedRange<Double> = 0.1...10.0
+        let range: ClosedRange<Double> = 0.1...15.0
         let normalized = (animatedSpeed - range.lowerBound) / (range.upperBound - range.lowerBound)
         return min(max(normalized, 0), 1)
     }

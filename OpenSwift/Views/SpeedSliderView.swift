@@ -3,12 +3,12 @@ import SwiftUI
 struct SpeedSliderView: View {
     @Binding var speed: Double
     let isEnabled: Bool
-    let range: ClosedRange<Double> = 0.1...10.0
+    let range: ClosedRange<Double> = 0.1...15.0
     
     @State private var isDragging: Bool = false
     @State private var dragStartSpeed: Double = 1.0
     
-    private let tickMarks: [Double] = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    private let tickMarks: [Double] = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0]
     
     var body: some View {
         VStack(spacing: 12) {

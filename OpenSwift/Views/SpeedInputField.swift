@@ -3,7 +3,7 @@ import SwiftUI
 struct SpeedInputField: View {
     @Binding var speed: Double
     let isEnabled: Bool
-    let range: ClosedRange<Double> = 0.1...10.0
+    let range: ClosedRange<Double> = 0.1...15.0
     
     @State private var inputText: String = ""
     @State private var isEditing: Bool = false

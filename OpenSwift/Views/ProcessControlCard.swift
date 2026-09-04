@@ -95,7 +95,7 @@ struct ProcessControlCard: View {
                 SpeedIndicatorCompact(speed: speed, isEnabled: isEnabled)
             }
             
-            Slider(value: $speed, in: 0.1...10.0, step: 0.1)
+            Slider(value: $speed, in: 0.1...15.0, step: 0.1)
                 .disabled(!isEnabled)
         }
     }
@@ -309,7 +309,7 @@ struct InjectedProcessCard: View {
                     get: { injected.speedRatio },
                     set: { onSpeedChange($0) }
                 ),
-                in: 0.1...10.0,
+                in: 0.1...15.0,
                 step: 0.1
             )
             .disabled(!injected.isEnabled)
