@@ -41,6 +41,8 @@ struct UpdatePanelView: View {
             return "当前 v\(current) → 最新 v\(latest)"
         case .downloading, .retrying:
             return "下载中…"
+        case .installing:
+            return "正在安装…"
         case .finished:
             return "下载完成"
         default:
@@ -87,6 +89,11 @@ struct UpdatePanelView: View {
         case .finished:
             statusRow(icon: "checkmark.circle.fill", color: .green,
                       text: "新版本已下载")
+                .frame(maxHeight: .infinity)
+
+        case .installing:
+            statusRow(icon: "arrow.triangle.2.circlepath.circle", color: .accentColor,
+                      text: "正在安装新版本并重启…")
                 .frame(maxHeight: .infinity)
 
         case .failed:
@@ -146,6 +153,8 @@ struct UpdatePanelView: View {
             case .finished:
                 Button("在 Finder 中显示") { manager.revealDownloaded() }
                 Button("关闭") { manager.cancel() }
+            case .installing:
+                Button("在 Finder 中显示") { manager.revealDownloaded() }
             case .failed:
                 Button("重试") { manager.checkForUpdates() }
                 Button("关闭") { manager.cancel() }

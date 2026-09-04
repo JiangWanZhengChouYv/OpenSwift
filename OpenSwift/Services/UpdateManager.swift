@@ -10,6 +10,7 @@ enum UpdatePhase: Equatable {
     case latest
     case downloading
     case retrying
+    case installing
     case finished
     case failed
 }
@@ -33,6 +34,7 @@ final class UpdateManager: ObservableObject {
 
     private let workQueue = DispatchQueue(label: "com.openswift.update", qos: .userInitiated)
     private let windowController = UpdateWindowController()
+    private let installer = UpdateInstaller.shared
     private var downloader: UpdateDownloader?
 
     private init() {}
@@ -100,8 +102,9 @@ final class UpdateManager: ObservableObject {
                 guard let self else { return }
                 self.downloadedURL = url
                 self.progress = 1
-                self.phase = .finished
+                self.phase = .installing
                 self.statusMessage = nil
+                self.installDownloaded()
             }
         }
         downloader.onFailed = { [weak self] message in
@@ -117,6 +120,25 @@ final class UpdateManager: ObservableObject {
         progress = 0
         phase = .downloading
         statusMessage = nil
+    }
+
+    /// 自动安装已下载的更新包并重启应用。
+    func installDownloaded() {
+        guard let downloadedURL, let manifest else { return }
+        installer.install(zipURL: downloadedURL, manifest: manifest) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .failure(let error):
+                    self.phase = .failed
+                    self.statusMessage = "安装失败：\(error.localizedDescription)"
+                case .success:
+                    // 安装助手已分离运行：清理并退出，由助手完成替换与重启。
+                    AppState.shared.shutdown()
+                    NSApplication.shared.terminate(nil)
+                }
+            }
+        }
     }
 
     /// 在 Finder 中显示已下载的更新包。
