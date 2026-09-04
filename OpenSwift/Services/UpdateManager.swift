@@ -2,11 +2,22 @@ import AppKit
 import Combine
 import Foundation
 
-/// 应用「检查更新」服务。
+/// 更新流程的阶段状态。
+enum UpdatePhase: Equatable {
+    case idle
+    case checking
+    case updateAvailable
+    case latest
+    case downloading
+    case retrying
+    case finished
+    case failed
+}
+
+/// 应用「检查更新」服务（图形化版）。
 ///
-/// 从 GitHub Release（tag=app）拉取 `app_update.json` 更新清单，与本地版本比较；
-/// 有更新时引导用户下载 zip 到 ~/Downloads 并 reveal。网络/磁盘在后台队列执行，
-/// UI（NSAlert）在主线程呈现。
+/// 从 GitHub Release（tag=app）拉取 `app_update.json`，比较版本后用图形化更新窗口
+/// 引导用户下载；下载交给 `UpdateDownloader`（断点续传 + 失败 3s 自动重连）。
 final class UpdateManager: ObservableObject {
     static let shared = UpdateManager()
 
@@ -14,71 +25,121 @@ final class UpdateManager: ObservableObject {
     static let releaseAPIURL =
         "https://api.github.com/repos/JiangWanZhengChouYv/OpenSwift/releases/tags/app"
 
-    @Published private(set) var isChecking = false
-    @Published private(set) var isDownloading = false
+    @Published private(set) var phase: UpdatePhase = .idle
+    @Published private(set) var manifest: AppUpdateManifest?
+    @Published private(set) var progress: Double = 0
+    @Published private(set) var statusMessage: String?
+    @Published private(set) var downloadedURL: URL?
 
     private let workQueue = DispatchQueue(label: "com.openswift.update", qos: .userInitiated)
+    private let windowController = UpdateWindowController()
+    private var downloader: UpdateDownloader?
 
     private init() {}
 
-    /// 主动检查更新，结果以 NSAlert 在主线程呈现。
+    /// 检查更新：打开图形化窗口并开始检查。
     func checkForUpdates() {
-        guard !isChecking else { return }
-        isChecking = true
+        switch phase {
+        case .downloading, .retrying:
+            return
+        default:
+            break
+        }
+        windowController.show()
+        phase = .checking
+        statusMessage = nil
+        manifest = nil
+        progress = 0
         performFetch { [weak self] result in
             guard let self else { return }
-            self.isChecking = false
+            let current = AppVersion.short
             DispatchQueue.main.async {
                 switch result {
                 case .failure(let error):
-                    self.showAlert(title: "检查更新失败", message: error.localizedDescription, style: .warning)
-                case .success(let manifest):
-                    let current = AppVersion.short
-                    if PluginMarket.isVersion(manifest.version, newerThan: current) {
-                        self.showUpdateAvailable(manifest)
+                    self.phase = .failed
+                    self.statusMessage = error.localizedDescription
+                case .success(let newManifest):
+                    self.manifest = newManifest
+                    if PluginMarket.isVersion(newManifest.version, newerThan: current) {
+                        self.phase = .updateAvailable
                     } else {
-                        self.showAlert(
-                            title: "已是最新版本",
-                            message: "当前已是最新版本 v\(current)",
-                            style: .informational
-                        )
+                        self.phase = .latest
                     }
                 }
             }
         }
     }
 
-    /// 下载更新包（仅由「有更新」弹窗调用）。
-    func downloadUpdate(_ manifest: AppUpdateManifest) {
-        guard !isDownloading, let url = URL(string: manifest.downloadURL) else { return }
-        isDownloading = true
-        let urlPath = URL(string: manifest.downloadURL)?.lastPathComponent ?? ""
-        let fileName = urlPath.isEmpty ? "OpenSwift-v\(manifest.version).zip" : urlPath
+    /// 开始下载当前清单指向的更新包（交给断点续传下载器）。
+    func startDownload() {
+        guard let manifest,
+              let url = URL(string: manifest.downloadURL) else { return }
+        let fileName = url.lastPathComponent.isEmpty
+            ? "OpenSwift-v\(manifest.version).zip"
+            : url.lastPathComponent
         let destination = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)
             .first?.appendingPathComponent(fileName) ?? URL(fileURLWithPath: "/tmp/\(fileName)")
-        URLSession.shared.downloadTask(with: url) { [weak self] tempURL, _, error in
-            guard let self else { return }
+
+        let downloader = UpdateDownloader()
+        downloader.onProgress = { [weak self] fraction in
             DispatchQueue.main.async {
-                self.isDownloading = false
+                guard let self else { return }
+                self.progress = fraction
+                self.phase = .downloading
+                self.statusMessage = nil
             }
-            if let error {
-                self.showAlert(title: "下载失败", message: error.localizedDescription, style: .warning)
-                return
+        }
+        downloader.onRetrying = { [weak self] in
+            DispatchQueue.main.async {
+                self?.phase = .retrying
+                self?.statusMessage = "连接中断，将在 3 秒后自动重试…"
             }
-            guard let tempURL else {
-                self.showAlert(title: "下载失败", message: "未获取到文件", style: .warning)
-                return
+        }
+        downloader.onSuccess = { [weak self] url in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.downloadedURL = url
+                self.progress = 1
+                self.phase = .finished
+                self.statusMessage = nil
             }
-            do {
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try FileManager.default.removeItem(at: destination)
-                }
-                try FileManager.default.moveItem(at: tempURL, to: destination)
-                self.finishDownload(destination, version: manifest.version)
-            } catch {
-                self.showAlert(title: "下载失败", message: error.localizedDescription, style: .warning)
+        }
+        downloader.onFailed = { [weak self] message in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.phase == .idle { return }
+                self.phase = .failed
+                self.statusMessage = message
             }
-        }.resume()
+        }
+        downloader.start(url: url, destination: destination, version: manifest.version)
+        self.downloader = downloader
+        progress = 0
+        phase = .downloading
+        statusMessage = nil
+    }
+
+    /// 在 Finder 中显示已下载的更新包。
+    func revealDownloaded() {
+        guard let downloadedURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([downloadedURL])
+    }
+
+    /// 用户取消：停止下载并关闭窗口。
+    func cancel() {
+        downloader?.cancel()
+        downloader = nil
+        phase = .idle
+        windowController.close()
+    }
+
+    /// 用户直接点了窗口关闭按钮：若仍在下载/重连则取消任务。
+    func handleWindowClosed() {
+        if phase == .downloading || phase == .retrying {
+            downloader?.cancel()
+            downloader = nil
+            phase = .idle
+        }
     }
 
     // MARK: - 清单拉取与比较
@@ -147,48 +208,6 @@ final class UpdateManager: ObservableObject {
             }
         }.resume()
     }
-
-    // MARK: - UI
-
-    private func showUpdateAvailable(_ manifest: AppUpdateManifest) {
-        let alert = NSAlert()
-        alert.messageText = "发现新版本 v\(manifest.version)"
-        alert.informativeText = manifest.notes?
-            .replacingOccurrences(of: "\\n", with: "\n") ?? "可用新版本，是否下载？"
-        alert.addButton(withTitle: "下载更新")
-        alert.addButton(withTitle: "取消")
-        if alert.runModal() == .alertFirstButtonReturn {
-            downloadUpdate(manifest)
-        }
-    }
-
-    private func finishDownload(_ url: URL, version: String) {
-        DispatchQueue.main.async {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
-            let alert = NSAlert()
-            alert.messageText = "下载完成"
-            alert.informativeText = "新版本 v\(version) 已下载到：\n\(url.path)\n\n请退出当前应用后，替换安装新版本。"
-            alert.addButton(withTitle: "好")
-            alert.runModal()
-        }
-    }
-
-    private func showAlert(title: String, message: String, style: NSAlert.Style) {
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = title
-            alert.informativeText = message
-            alert.alertStyle = style
-            alert.addButton(withTitle: "好")
-            alert.runModal()
-        }
-    }
-}
-
-/// 更新检查失败包装（把可读消息转换为 Error）。
-private struct UpdateCheckError: LocalizedError {
-    let message: String
-    var errorDescription: String? { message }
 }
 
 /// `app_update.json` 更新清单结构。
@@ -206,6 +225,12 @@ struct AppUpdateManifest: Decodable {
         case downloadURL = "download_url"
         case sha256
     }
+}
+
+/// 更新检查失败包装（把可读消息转换为 Error）。
+private struct UpdateCheckError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
 
 /// GitHub Release 返回结构中对资源的简化描述。
