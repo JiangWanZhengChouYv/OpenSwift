@@ -95,12 +95,18 @@ struct PluginUIElement: Codable, Equatable, Identifiable {
     let key: String
     let label: String?
     let defaultValue: PluginConfigValue?
+    /// UI 控件渲染位置：缺省 `plugin`（插件面板）；`home` = 主加速页。
+    let slot: String?
+    /// 绑定的宿主原生属性（如 `recursive_injection`）；缺省 nil = 普通插件配置控件。
+    let native: String?
 
     private enum CodingKeys: String, CodingKey {
         case type
         case key
         case label
         case defaultValue = "default"
+        case slot
+        case native
     }
 }
 

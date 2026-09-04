@@ -17,6 +17,7 @@ enum SharedMemoryLayout {
     static let offsetIsActive = 16   // UInt8
     static let offsetTimestamp = 24  // UInt64
     static let offsetHookWallclock = 32  // UInt8
+    static let offsetRecursiveInject = 40  // UInt8
 
     static let currentVersion: UInt32 = 2
     static let minVersion: UInt32 = 2
@@ -380,16 +381,6 @@ extension SpeedControlManager {
 
             logInfo("Speed ratio: \(clampedRatio), enabled: \(enabled) for PID \(targetPID)", log: .speed)
             return true
-        }
-    }
-
-    func syncFromSharedMemory() -> SharedMemorySnapshot? {
-        return ioQueue.sync {
-            guard let pointer = sharedMemoryPointer else { return nil }
-            let ratio = pointer.load(fromByteOffset: SharedMemoryLayout.offsetSpeedRatio, as: Float32.self)
-            let isActive = pointer.load(fromByteOffset: SharedMemoryLayout.offsetIsActive, as: UInt8.self) != 0
-            let isWallclock = pointer.load(fromByteOffset: SharedMemoryLayout.offsetHookWallclock, as: UInt8.self) != 0
-            return SharedMemorySnapshot(speedRatio: ratio, isEnabled: isActive, isWallclockHooked: isWallclock)
         }
     }
 }

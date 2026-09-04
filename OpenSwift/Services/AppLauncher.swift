@@ -44,6 +44,7 @@ struct LaunchedProcess: Identifiable, Equatable {
     var isSharedMemoryConnected: Bool
     var launchMethod: LaunchMethod
     var isWallclockHooked: Bool
+    var isRecursiveInjection: Bool
     /// 与目标进程一一对应的 SpeedControlManager。由 AppLauncher 在创建进程时
     /// 初始化（lazy attach），不与其他进程共享上下文。
     var speedController: SpeedControlManager
@@ -60,6 +61,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         isSharedMemoryConnected: Bool = false,
         launchMethod: LaunchMethod = .dyld,
         isWallclockHooked: Bool = true,
+        isRecursiveInjection: Bool = false,
         speedController: SpeedControlManager? = nil
     ) {
         self.id = id
@@ -73,6 +75,7 @@ struct LaunchedProcess: Identifiable, Equatable {
         self.isSharedMemoryConnected = isSharedMemoryConnected
         self.launchMethod = launchMethod
         self.isWallclockHooked = isWallclockHooked
+        self.isRecursiveInjection = isRecursiveInjection
         self.speedController = speedController ?? SpeedControlManager(pid: pid)
     }
 

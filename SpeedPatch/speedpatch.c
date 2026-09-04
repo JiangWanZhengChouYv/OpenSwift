@@ -14,8 +14,12 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <errno.h>
+#include <spawn.h>
 
 #include "fishhook.h"
+
+// 递归注入：需要访问进程自身环境变量的链式表（用于退回到当前进程 env）
+extern char **environ;
 
 #define SHARED_MEMORY_KEY_PREFIX "com.openswift.speedpatch."
 #define SHARED_MEMORY_SIZE 4096
@@ -40,7 +44,8 @@ typedef struct {
     uint64_t timestamp;           // 8 bytes, offset 24  - 最后修改时间戳
     uint8_t  hook_wallclock;      // 1 byte,  offset 32  - 是否 hook 挂钟时间（默认1=开）
     uint8_t  reserved2[7];        // 7 bytes, offset 33-39 (填充到 8 字节边界)
-    uint8_t  reserved[32];        // 32 bytes, offset 40-71
+    uint8_t  recursive_inject;    // 1 byte,  offset 40  - 是否允许递归注入子进程（默认0=关）
+    uint8_t  reserved[31];        // 31 bytes, offset 41-71
 } SharedMemoryHeader;             // 总大小: 72 bytes
 
 // 编译时断言：验证结构体大小和字段偏移
@@ -52,11 +57,15 @@ _Static_assert(offsetof(SharedMemoryHeader, speed_ratio) == 12, "speed_ratio off
 _Static_assert(offsetof(SharedMemoryHeader, is_active) == 16, "is_active offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, timestamp) == 24, "timestamp offset mismatch");
 _Static_assert(offsetof(SharedMemoryHeader, hook_wallclock) == 32, "hook_wallclock offset mismatch");
+_Static_assert(offsetof(SharedMemoryHeader, recursive_inject) == 40, "recursive_inject offset mismatch");
 
 static SharedMemoryHeader* g_shared_memory = NULL;
 static int g_shm_fd = -1;
 static pid_t g_own_pid = 0;
 static mach_timebase_info_data_t g_timebase_info;
+
+// 递归注入：本 dylib 的绝对路径（在构造函数中解析一次）。NULL 时递归注入整体失效。
+static char* g_own_dylib_path = NULL;
 
 static const uint32_t CURRENT_VERSION = SPDM_VERSION;
 static const uint32_t MAGIC_NUMBER = SPDM_MAGIC;
@@ -255,6 +264,17 @@ bool speedpatch_is_wallclock_hooked(void) {
         return true;  // magic 校验失败默认开启
     }
     return (g_shared_memory->hook_wallclock != 0);
+}
+
+bool speedpatch_is_recursive_inject(void) {
+    if (g_shared_memory == NULL) {
+        return false;
+    }
+    // magic number 验证
+    if (g_shared_memory->magic != MAGIC_NUMBER) {
+        return false;
+    }
+    return (g_shared_memory->recursive_inject != 0);
 }
 
 // ============================================================================
@@ -658,6 +678,242 @@ static double hooked_CFAbsoluteTimeGetCurrent(void) {
 }
 
 // ============================================================================
+// 递归注入 Hook（仅 recursive_inject=1 时生效）
+// ============================================================================
+//
+// 默认关闭。开启后，SpeedPatch 会在进程 exec*/posix_spawn* 子进程时，把
+// 本 dylib 通过全新构造的 DYLD_INSERT_LIBRARIES 环境变量递归注入到子进程，
+// 使 Electron/Qt 等多进程应用的子进程同样被加速。
+// 关闭时对现有行为零影响：四个 hook 全部原样透传。
+//
+
+typedef int (*execve_t)(const char* path, char* const argv[], char* const envp[]);
+typedef int (*execvpe_t)(const char* file, char* const argv[], char* const envp[]);
+typedef int (*posix_spawn_t)(pid_t* pid, const char* path,
+                             const posix_spawn_file_actions_t* file_actions,
+                             const posix_spawnattr_t* attrp,
+                             char* const argv[], char* const envp[]);
+typedef int (*posix_spawnp_t)(pid_t* pid, const char* file,
+                              const posix_spawn_file_actions_t* file_actions,
+                              const posix_spawnattr_t* attrp,
+                              char* const argv[], char* const envp[]);
+
+static execve_t      original_execve = NULL;
+static execvpe_t     original_execvpe = NULL;
+static posix_spawn_t original_posix_spawn = NULL;
+static posix_spawnp_t original_posix_spawnp = NULL;
+
+// 在构造函数中解析一次本 dylib 的绝对路径（用于注入子进程）。
+static void speedpatch_resolve_own_dylib(void) {
+    if (g_own_dylib_path != NULL) return;
+
+    uint32_t count = _dyld_image_count();
+    for (uint32_t i = 0; i < count; i++) {
+        const char* name = _dyld_get_image_name(i);
+        if (name != NULL && strstr(name, "SpeedPatch") != NULL) {
+            g_own_dylib_path = strdup(name);
+            break;
+        }
+    }
+
+    if (g_own_dylib_path != NULL) {
+        printf("[SpeedPatch] Own dylib path for recursive injection: %s\n", g_own_dylib_path);
+    } else {
+        printf("[SpeedPatch] WARNING: could not resolve own dylib path; recursive injection disabled\n");
+    }
+}
+
+// Chromium/Electron 子进程跳过：renderer/gpu/utility/zygote/broker 子进程
+// 必须跳过（符号冲突会导致隔离容器崩溃，见项目历史）。
+static bool speedpatch_chromium_skip(char* const argv[]) {
+    if (argv == NULL) return false;
+
+    static const char* const markers[] = {
+        "--type=renderer",
+        "--type=gpu-process",
+        "--type=utility",
+        "--type=zygote",
+        "--type=broker",
+    };
+
+    for (size_t i = 0; argv[i] != NULL; i++) {
+        for (size_t j = 0; j < sizeof(markers) / sizeof(markers[0]); j++) {
+            if (strstr(argv[i], markers[j]) != NULL) return true;
+        }
+    }
+    return false;
+}
+
+// argv 中已直接含有本 dylib 路径（防御性检查，避免二次注入）。
+static bool speedpatch_argv_already_injected(char* const argv[]) {
+    if (g_own_dylib_path == NULL || argv == NULL) return false;
+    for (size_t i = 0; argv[i] != NULL; i++) {
+        if (strstr(argv[i], g_own_dylib_path) != NULL) return true;
+    }
+    return false;
+}
+
+// 目标环境项是否应被剔除：
+// 覆盖 DYLD_INSERT_LIBRARIES / OPENSWIFT_CONTAINER / DYLD_FORCE_FLAT_NAMESPACE
+// （这三类都会被我们重建并重新注入）。
+static bool speedpatch_env_should_drop(const char* entry) {
+    if (strncmp(entry, "DYLD_INSERT_LIBRARIES=",
+                sizeof("DYLD_INSERT_LIBRARIES=") - 1) == 0) return true;
+    if (strncmp(entry, "OPENSWIFT_CONTAINER=",
+                sizeof("OPENSWIFT_CONTAINER=") - 1) == 0) return true;
+    if (strncmp(entry, "DYLD_FORCE_FLAT_NAMESPACE=",
+                sizeof("DYLD_FORCE_FLAT_NAMESPACE=") - 1) == 0) return true;
+    return false;
+}
+
+// 构造用于子进程的注入环境：
+// - g_own_dylib_path 为 NULL 时放弃注入（返回 NULL）；
+// - 拷贝原始环境，剔除上述三类键；
+// - 末尾追加两条 malloc 字符串：DYLD_INSERT_LIBRARIES=<own> 和 DYLD_FORCE_FLAT_NAMESPACE=1。
+// 返回值：新分配的 NULL 结尾数组；其中的两个追加键字符串为新增分配，
+// 原始环境项不归我们所有（调用方用 speedpatch_free_injected_env 释放）。
+static char** speedpatch_build_injected_env(char* const envp[]) {
+    if (g_own_dylib_path == NULL) return NULL;
+
+    char** base = (char**)envp;
+    if (base == NULL) base = environ;
+    if (base == NULL) return NULL; // 环境完全为空
+
+    // 先统计保留的条目数
+    size_t kept = 0;
+    for (size_t i = 0; base[i] != NULL; i++) {
+        if (!speedpatch_env_should_drop(base[i])) kept++;
+    }
+
+    // kept 个保留项 + 2 个追加键 + 1 个 NULL 结尾
+    char** result = (char**)malloc((kept + 3) * sizeof(char*));
+    if (result == NULL) return NULL;
+
+    size_t idx = 0;
+    for (size_t i = 0; base[i] != NULL; i++) {
+        if (!speedpatch_env_should_drop(base[i])) result[idx++] = base[i];
+    }
+
+    // 追加 DYLD_INSERT_LIBRARIES=<own>
+    static const char kInsertKey[] = "DYLD_INSERT_LIBRARIES=";
+    size_t key_len = sizeof(kInsertKey) - 1;
+    size_t path_len = strlen(g_own_dylib_path);
+    char* inject = (char*)malloc(key_len + path_len + 1);
+    if (inject == NULL) {
+        free(result);
+        return NULL;
+    }
+    memcpy(inject, kInsertKey, key_len);
+    memcpy(inject + key_len, g_own_dylib_path, path_len);
+    inject[key_len + path_len] = '\0';
+    result[idx++] = inject;
+
+    // 追加 DYLD_FORCE_FLAT_NAMESPACE=1
+    static const char kFlatKey[] = "DYLD_FORCE_FLAT_NAMESPACE=1";
+    char* flat = (char*)malloc(sizeof(kFlatKey));
+    if (flat == NULL) {
+        free(inject);
+        free(result);
+        return NULL;
+    }
+    memcpy(flat, kFlatKey, sizeof(kFlatKey));
+    result[idx++] = flat;
+
+    result[idx] = NULL;
+    return result;
+}
+
+// 释放注入环境：只释放数组本身和末尾 added 个追加键字符串。
+static void speedpatch_free_injected_env(char** arr, size_t added) {
+    if (arr == NULL) return;
+
+    size_t total = 0;
+    while (arr[total] != NULL) total++;
+
+    size_t start = (total >= added) ? (total - added) : 0;
+    for (size_t i = start; i < total; i++) {
+        free(arr[i]);
+    }
+    free(arr);
+}
+
+//
+// 四个 hook 包装：execve / execvpe / posix_spawn / posix_spawnp
+// 关闭时（默认）全部原样透传；开启且条件满足时替换 envp 为注入环境。
+//
+
+static int hooked_execve(const char* path, char* const argv[], char* const envp[]) {
+    if (!speedpatch_is_recursive_inject()
+        || g_own_dylib_path == NULL
+        || speedpatch_chromium_skip(argv)
+        || speedpatch_argv_already_injected(argv)) {
+        return original_execve(path, argv, envp);
+    }
+
+    char** injected = speedpatch_build_injected_env(envp);
+    if (injected == NULL) return original_execve(path, argv, envp);
+
+    // exec 成功不会返回；只有失败才返回，此时释放注入环境
+    int result = original_execve(path, argv, injected);
+    speedpatch_free_injected_env(injected, 2);
+    return result;
+}
+
+static int hooked_execvpe(const char* file, char* const argv[], char* const envp[]) {
+    if (!speedpatch_is_recursive_inject()
+        || g_own_dylib_path == NULL
+        || speedpatch_chromium_skip(argv)
+        || speedpatch_argv_already_injected(argv)) {
+        return original_execvpe(file, argv, envp);
+    }
+
+    char** injected = speedpatch_build_injected_env(envp);
+    if (injected == NULL) return original_execvpe(file, argv, envp);
+
+    int result = original_execvpe(file, argv, injected);
+    speedpatch_free_injected_env(injected, 2);
+    return result;
+}
+
+static int hooked_posix_spawn(pid_t* pid, const char* path,
+                              const posix_spawn_file_actions_t* file_actions,
+                              const posix_spawnattr_t* attrp,
+                              char* const argv[], char* const envp[]) {
+    if (!speedpatch_is_recursive_inject()
+        || g_own_dylib_path == NULL
+        || speedpatch_chromium_skip(argv)
+        || speedpatch_argv_already_injected(argv)) {
+        return original_posix_spawn(pid, path, file_actions, attrp, argv, envp);
+    }
+
+    char** injected = speedpatch_build_injected_env(envp);
+    if (injected == NULL) return original_posix_spawn(pid, path, file_actions, attrp, argv, envp);
+
+    int result = original_posix_spawn(pid, path, file_actions, attrp, argv, injected);
+    speedpatch_free_injected_env(injected, 2);
+    return result;
+}
+
+static int hooked_posix_spawnp(pid_t* pid, const char* file,
+                               const posix_spawn_file_actions_t* file_actions,
+                               const posix_spawnattr_t* attrp,
+                               char* const argv[], char* const envp[]) {
+    if (!speedpatch_is_recursive_inject()
+        || g_own_dylib_path == NULL
+        || speedpatch_chromium_skip(argv)
+        || speedpatch_argv_already_injected(argv)) {
+        return original_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
+    }
+
+    char** injected = speedpatch_build_injected_env(envp);
+    if (injected == NULL) return original_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
+
+    int result = original_posix_spawnp(pid, file, file_actions, attrp, argv, injected);
+    speedpatch_free_injected_env(injected, 2);
+    return result;
+}
+
+// ============================================================================
 // fishhook 注册
 // ============================================================================
 
@@ -711,6 +967,10 @@ static void speedpatch_hook_time_functions(void) {
         {"usleep", hooked_usleep, (void**)&original_usleep},
         {"clock", hooked_clock, (void**)&original_clock},
         {"CFAbsoluteTimeGetCurrent", hooked_CFAbsoluteTimeGetCurrent, (void**)&original_CFAbsoluteTimeGetCurrent},
+        {"execve", hooked_execve, (void**)&original_execve},
+        {"execvpe", hooked_execvpe, (void**)&original_execvpe},
+        {"posix_spawn", hooked_posix_spawn, (void**)&original_posix_spawn},
+        {"posix_spawnp", hooked_posix_spawnp, (void**)&original_posix_spawnp},
     };
 
     int result = rebind_symbols(rebindings, sizeof(rebindings) / sizeof(rebindings[0]));
@@ -763,6 +1023,9 @@ void speedpatch_init(void) {
 
     // 鱼钩替换完毕、original_* 指针已就绪，初始化时间基准值
     speedpatch_init_time_base();
+
+    // 解析本 dylib 的绝对路径（递归注入子进程用；找不到则递归注入整体失效）
+    speedpatch_resolve_own_dylib();
 
     printf("[SpeedPatch] ✅ Initialization complete. Waiting for speed control commands...\n");
 }

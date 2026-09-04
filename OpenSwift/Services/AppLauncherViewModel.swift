@@ -75,6 +75,7 @@ class AppLauncherViewModel: ObservableObject {
                     updated.speedController = existingProcess.speedController
                     updated.launchMethod = existingProcess.launchMethod
                     updated.isWallclockHooked = existingProcess.isWallclockHooked
+                    updated.isRecursiveInjection = existingProcess.isRecursiveInjection
                     return updated
                 }
                 return newProcess
@@ -166,11 +167,13 @@ class AppLauncherViewModel: ObservableObject {
                 if success {
                     _ = mutable.speedController.setHookWallclock(AppSettings.shared.hookWallclockDefault)
                     mutable.isWallclockHooked = AppSettings.shared.hookWallclockDefault
+                    mutable.isRecursiveInjection = false
                 }
                 if let state = mutable.speedController.syncFromSharedMemory() {
                     mutable.currentSpeed = Double(state.speedRatio)
                     mutable.isSpeedControlEnabled = state.isEnabled
                     mutable.isWallclockHooked = state.isWallclockHooked
+                    mutable.isRecursiveInjection = state.isRecursiveInjection
                 }
                 return mutable
             }

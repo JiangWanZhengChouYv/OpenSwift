@@ -223,110 +223,14 @@ private struct PluginRow: View {
         .padding(.vertical, 4)
     }
 
-    private var hasScript: Bool {
-        guard let script = plugin.manifest.script else {
-            return false
-        }
-        return !script.isEmpty && plugin.isEnabled
-    }
-
     /// 依据清单 ui 定义的动态控件区域。
     @ViewBuilder
     private var controlsArea: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(plugin.manifest.ui) { element in
-                configControl(for: element)
+            ForEach(plugin.manifest.ui.filter { ($0.slot ?? "plugin") != "home" }) { element in
+                PluginUIControlView(pluginID: plugin.id, element: element)
             }
         }
         .padding(.leading, 34)
-    }
-
-    @ViewBuilder
-    private func configControl(for element: PluginUIElement) -> some View {
-        switch element.type {
-        case "toggle":
-            toggleControl(for: element)
-        case "button":
-            buttonControl(for: element)
-        case "text":
-            textControl(for: element)
-        case "number":
-            numberControl(for: element)
-        case "list":
-            PluginScheduleEditor(pluginID: plugin.id, key: element.key, label: element.label)
-        default:
-            EmptyView()
-        }
-    }
-
-    private func toggleControl(for element: PluginUIElement) -> some View {
-        let isOn = Binding<Bool>(
-            get: {
-                let configured = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
-                if case .bool(let value)? = configured {
-                    return value
-                }
-                if case .bool(let value)? = element.defaultValue {
-                    return value
-                }
-                return false
-            },
-            set: { newValue in
-                PluginStore.shared.setConfig(.bool(newValue), forKey: element.key, pluginID: plugin.id)
-            }
-        )
-        return Toggle(element.label ?? element.key, isOn: isOn)
-            .toggleStyle(.switch)
-            .font(.system(size: 12))
-    }
-
-    private func buttonControl(for element: PluginUIElement) -> some View {
-        Button(element.label ?? element.key) {
-            PluginRuntime.shared.callExportedFunction(pluginID: plugin.id, name: element.key)
-        }
-        .font(.system(size: 12))
-        .disabled(!hasScript)
-    }
-
-    private func textControl(for element: PluginUIElement) -> some View {
-        let text = Binding<String>(
-            get: {
-                let configuredValue = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
-                if case .string(let value)? = configuredValue {
-                    return value
-                }
-                if case .string(let value)? = element.defaultValue {
-                    return value
-                }
-                return ""
-            },
-            set: { newValue in
-                PluginStore.shared.setConfig(.string(newValue), forKey: element.key, pluginID: plugin.id)
-            }
-        )
-        return TextField(element.label ?? element.key, text: text)
-            .font(.system(size: 12))
-    }
-
-    private func numberControl(for element: PluginUIElement) -> some View {
-        let number = Binding<String>(
-            get: {
-                let configuredValue = PluginStore.shared.configValue(pluginID: plugin.id, key: element.key)
-                if case .number(let value)? = configuredValue {
-                    return String(format: "%.3f", value)
-                }
-                if case .number(let value)? = element.defaultValue {
-                    return String(format: "%.3f", value)
-                }
-                return ""
-            },
-            set: { newValue in
-                if let value = Double(newValue) {
-                    PluginStore.shared.setConfig(.number(value), forKey: element.key, pluginID: plugin.id)
-                }
-            }
-        )
-        return TextField(element.label ?? element.key, text: number)
-            .font(.system(size: 12))
     }
 }

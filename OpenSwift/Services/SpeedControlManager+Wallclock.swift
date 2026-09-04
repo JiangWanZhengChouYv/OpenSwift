@@ -7,6 +7,29 @@ struct SharedMemorySnapshot {
     let speedRatio: Float
     let isEnabled: Bool
     let isWallclockHooked: Bool
+    let isRecursiveInjection: Bool
+}
+
+// MARK: - 共享内存快照读取
+extension SpeedControlManager {
+    func syncFromSharedMemory() -> SharedMemorySnapshot? {
+        return ioQueue.sync {
+            guard let pointer = sharedMemoryPointer else { return nil }
+            let ratio = pointer.load(fromByteOffset: SharedMemoryLayout.offsetSpeedRatio, as: Float32.self)
+            let isActive = pointer.load(fromByteOffset: SharedMemoryLayout.offsetIsActive, as: UInt8.self) != 0
+            let isWallclock = pointer.load(fromByteOffset: SharedMemoryLayout.offsetHookWallclock, as: UInt8.self) != 0
+            let isRecursiveInject = pointer.load(
+                fromByteOffset: SharedMemoryLayout.offsetRecursiveInject,
+                as: UInt8.self
+            ) != 0
+            return SharedMemorySnapshot(
+                speedRatio: ratio,
+                isEnabled: isActive,
+                isWallclockHooked: isWallclock,
+                isRecursiveInjection: isRecursiveInject
+            )
+        }
+    }
 }
 
 // MARK: - 挂钟时间 Hook 读写

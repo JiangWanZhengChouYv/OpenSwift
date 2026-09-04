@@ -227,6 +227,9 @@ extension SpeedControlPanel {
                 )
 
                 wallclockToggleSection(for: currentProcess)
+
+                Divider()
+                homePluginControlsSection(for: currentProcess)
             }
         }
         .padding()

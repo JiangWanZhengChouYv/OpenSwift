@@ -145,7 +145,16 @@ struct PluginParser {
             let key = try requiredString(elementDict, key: "key")
             let label = elementDict["label"] as? String
             let defaultValue = elementDict["default"].flatMap(PluginConfigValue.from)
-            return PluginUIElement(type: type, key: key, label: label, defaultValue: defaultValue)
+            let slot = elementDict["slot"] as? String
+            let native = elementDict["native"] as? String
+            return PluginUIElement(
+                type: type,
+                key: key,
+                label: label,
+                defaultValue: defaultValue,
+                slot: slot,
+                native: native
+            )
         }
     }
 
