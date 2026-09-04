@@ -6,16 +6,28 @@ struct SpeedSliderView: View {
     let range: ClosedRange<Double> = 0.1...15.0
     
     @State private var isDragging: Bool = false
-    @State private var dragStartSpeed: Double = 1.0
     
     private let tickMarks: [Double] = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0]
+
+    /// 倍率采用对数刻度：低速区间拉开、高速区间压缩，刻度均匀且拖动平滑。
+    private func fraction(for value: Double) -> Double {
+        let lo = log(0.1)
+        let hi = log(15.0)
+        return (log(value) - lo) / (hi - lo)
+    }
+
+    private func value(for fraction: Double) -> Double {
+        let lo = log(0.1)
+        let hi = log(15.0)
+        return exp(lo + fraction * (hi - lo))
+    }
     
     var body: some View {
         VStack(spacing: 12) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(isEnabled ? Color(NSColor.lightGray) : Color(NSColor.lightGray).opacity(0.3))
+                        .fill(isEnabled ? Color.secondary.opacity(0.18) : Color.secondary.opacity(0.18).opacity(0.3))
                         .frame(height: 8)
                     
                     let progress = calculateProgress()
@@ -33,19 +45,17 @@ struct SpeedSliderView: View {
                         .opacity(isEnabled ? 1.0 : 0.5)
                         .gesture(
                             DragGesture(minimumDistance: 0)
-                                .onChanged { value in
+                                .onChanged { drag in
                                     guard isEnabled else { return }
                                     if !isDragging {
                                         isDragging = true
-                                        dragStartSpeed = speed
                                     }
-                                    
-                                    let newProgress = value.location.x / geometry.size.width
+
+                                    let newProgress = drag.location.x / geometry.size.width
                                     let clampedProgress = min(max(newProgress, 0), 1)
-                                    let rangeSpan = range.upperBound - range.lowerBound
-                                    let newSpeed = range.lowerBound + clampedProgress * rangeSpan
-                                    
-                                    speed = snapToNearestTick(newSpeed)
+                                    // 平滑拖动：按对数标尺取连续值，不做刻度吸附。
+                                    let rawSpeed = value(for: clampedProgress)
+                                    speed = min(max(rawSpeed, range.lowerBound), range.upperBound)
                                 }
                                 .onEnded { _ in
                                     isDragging = false
@@ -58,11 +68,11 @@ struct SpeedSliderView: View {
             GeometryReader { geometry in
                 let width = geometry.size.width
                 ZStack(alignment: .topLeading) {
-                    // 按值线性比例定位每个刻度，与拖动摇杆的映射一致，保证刻度与真实倍率位置对齐。
+                    // 按对数比例定位每个刻度，与拖动摇杆同标尺，保证刻度、标签与真实倍率位置对齐且不重叠。
                     ForEach(Array(tickMarks.enumerated()), id: \.element) { _, tick in
-                        let fraction = (tick - range.lowerBound) / (range.upperBound - range.lowerBound)
+                        let fraction = fraction(for: tick)
                         let rawX = fraction * width
-                        let clampedX = min(max(rawX, 20), width - 28)
+                        let clampedX = min(max(rawX, 16), width - 16)
                         VStack(spacing: 4) {
                             Rectangle()
                                 .fill(tickColor(for: tick))
@@ -93,25 +103,14 @@ struct SpeedSliderView: View {
     }
     
     private func calculateProgress() -> Double {
-        return (speed - range.lowerBound) / (range.upperBound - range.lowerBound)
-    }
-    
-    private func snapToNearestTick(_ value: Double) -> Double {
-        let closest = tickMarks.min(by: { abs($0 - value) < abs($1 - value) })
-        if let tick = closest, abs(tick - value) < 0.15 {
-            return tick
-        }
-        return min(max(value, range.lowerBound), range.upperBound)
+        return fraction(for: speed)
     }
     
     private func formatSpeed(_ value: Double) -> String {
-        if value == 1.0 {
-            return "1x"
-        } else if value == range.lowerBound || value == range.upperBound {
-            return String(format: "%.1fx", value)
-        } else {
-            return String(format: "%.1fx", value)
+        if value.rounded() == value {
+            return String(format: "%.0fx", value)
         }
+        return String(format: "%.1fx", value)
     }
     
     private func tickColor(for tick: Double) -> Color {
