@@ -87,6 +87,8 @@ private struct MarketItemRow: View {
 
     let item: PluginMarketItem
 
+    @State private var isHovering: Bool = false
+
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
@@ -110,6 +112,13 @@ private struct MarketItemRow: View {
             installButton
         }
         .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: Design.cornerRadiusSmall)
+                .fill(Design.hoverAccent)
+                .opacity(isHovering ? 1 : 0)
+        )
+        .onHover { isHovering = $0 }
     }
 
     @ViewBuilder

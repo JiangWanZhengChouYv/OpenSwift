@@ -387,6 +387,6 @@ extension SpeedControlPanel {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Design.panelBackground)
     }
 }

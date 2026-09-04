@@ -21,7 +21,7 @@ struct SpeedSliderView: View {
                     let progress = calculateProgress()
                     
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(isEnabled ? speedColor : Color(NSColor.lightGray))
+                        .fill(isEnabled ? speedColor : Color.secondary.opacity(0.18))
                         .frame(width: geometry.size.width * progress, height: 8)
                         .opacity(isEnabled ? 1.0 : 0.3)
                     

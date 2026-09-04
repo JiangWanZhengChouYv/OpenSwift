@@ -71,7 +71,7 @@ struct PluginListView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Design.panelBackground)
     }
 
     // MARK: - 列表

@@ -33,12 +33,16 @@ struct LaunchedProcessCard: View {
         }
         .padding()
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: Design.cornerRadius)
+                .fill(Design.cardBackground)
+                .shadow(color: Design.cardShadowColor, radius: Design.cardShadowRadius, x: 0, y: Design.cardShadowY)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: Design.cornerRadius)
+                .fill(isHovering ? Design.hoverAccent : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Design.cornerRadius)
                 .stroke(borderColor, lineWidth: borderWidth)
         )
         .onHover { hovering in

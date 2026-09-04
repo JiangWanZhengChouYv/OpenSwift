@@ -12,7 +12,7 @@ struct SpeedIndicator: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color(NSColor.lightGray), lineWidth: 12)
+                .stroke(Color.secondary.opacity(0.2), lineWidth: 12)
                 .frame(width: size, height: size)
             
             Circle()
