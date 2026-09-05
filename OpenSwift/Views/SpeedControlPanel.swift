@@ -67,7 +67,7 @@ struct SpeedControlPanel: View {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
+                .glassIconButtonCompatible()
                 .help("刷新已启动进程")
                 
                 Button(action: {

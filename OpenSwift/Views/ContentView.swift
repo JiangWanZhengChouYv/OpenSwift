@@ -158,6 +158,37 @@ struct ContentView: View {
     }
     
     private var hotkeyStatusIndicator: some View {
+        Group {
+            if #available(macOS 26.0, *) {
+                Button {
+                    showHotkeySettings = true
+                } label: {
+                    hotkeyIndicatorContent
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.glass)
+                .help("打开快捷键设置")
+            } else {
+                Button {
+                    showHotkeySettings = true
+                } label: {
+                    hotkeyIndicatorContent
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color(NSColor.controlBackgroundColor))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("打开快捷键设置")
+            }
+        }
+    }
+
+    /// 指示内容（状态点 + 文本），供玻璃按钮与旧 Capsule 指示共用。
+    private var hotkeyIndicatorContent: some View {
         HStack(spacing: 4) {
             Circle()
                 .fill(indicatorColor)
@@ -167,12 +198,6 @@ struct ContentView: View {
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
     }
 
     /// 快捷键状态指示：已启用+已授权=绿，已启用但未授权=橙，未启用=灰。

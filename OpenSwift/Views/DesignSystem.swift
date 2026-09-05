@@ -82,4 +82,14 @@ extension View {
             self.buttonStyle(.bordered)
         }
     }
+
+    /// 图标按钮风格：macOS 26+ 用官方 `.glass` 玻璃按钮，更早系统回退 `.plain`（无边框图标，保持原观感）。
+    @ViewBuilder
+    func glassIconButtonCompatible() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.plain)
+        }
+    }
 }

@@ -173,8 +173,7 @@ struct FirstLaunchView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(12)
+            .glassCardBackground(cornerRadius: 12)
         }
     }
     
@@ -193,7 +192,7 @@ struct FirstLaunchView: View {
                     }
                     .font(.system(size: 13, weight: .medium))
                 }
-                .buttonStyle(.bordered)
+                .glassButtonCompatible()
             }
             
             Spacer()
@@ -211,9 +210,7 @@ struct FirstLaunchView: View {
                     }
                     .font(.system(size: 13, weight: .medium))
                 }
-                .buttonStyle(.bordered)
-                .background(Color(hex: "34C759"))
-                .foregroundColor(.white)
+                .modifier(PrimaryLaunchButtonStyle(tint: Color(hex: "34C759")))
                 .keyboardShortcut(.defaultAction)
             } else {
                 // 步骤0、1、2：显示下一步按钮
@@ -228,9 +225,7 @@ struct FirstLaunchView: View {
                     }
                     .font(.system(size: 13, weight: .medium))
                 }
-                .buttonStyle(.bordered)
-                .background(Color.accentColor)
-                .foregroundColor(.white)
+                .modifier(PrimaryLaunchButtonStyle(tint: Color.accentColor))
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -240,6 +235,25 @@ struct FirstLaunchView: View {
     
     private func close() {
         presentationMode.wrappedValue.dismiss()
+    }
+}
+
+/// 主按钮「下一步/开始使用」的液态玻璃样式：macOS 26+ 用 `.glass` + tint 强调色，
+/// 更早系统回退 `.borderedProminent`（自带强调底 + 白字）。
+private struct PrimaryLaunchButtonStyle: ViewModifier {
+    var tint: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .buttonStyle(.glass)
+                .tint(tint)
+                .foregroundColor(.white)
+        } else {
+            content
+                .buttonStyle(.borderedProminent)
+        }
     }
 }
 
