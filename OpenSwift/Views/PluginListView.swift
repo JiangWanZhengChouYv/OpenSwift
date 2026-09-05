@@ -218,13 +218,20 @@ private struct PluginRow: View {
                 .help("更多操作")
             }
 
-            if plugin.isEnabled && !plugin.manifest.ui.isEmpty {
-                Group {
+            // 控件区常驻渲染：List 行内 if + transition 不会触发过渡，
+            // 改为绑定 isEnabled 的透明度/缩放/高度裁切动画实现平滑展开收起。
+            if !plugin.manifest.ui.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
                     Divider()
                         .padding(.vertical, 4)
                     controlsArea
                 }
-                .transition(.scale(scale: 0.92).combined(with: .opacity))
+                .scaleEffect(plugin.isEnabled ? 1 : 0.96, anchor: .top)
+                .opacity(plugin.isEnabled ? 1 : 0)
+                .frame(maxHeight: plugin.isEnabled ? nil : 0, alignment: .top)
+                .clipped()
+                .allowsHitTesting(plugin.isEnabled)
+                .animation(.easeInOut(duration: 0.2), value: plugin.isEnabled)
             }
         }
         .padding(.vertical, 4)
