@@ -103,8 +103,7 @@ struct AppSelectorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(NSColor.textBackgroundColor))
-        .cornerRadius(8)
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private var loadingView: some View {
@@ -174,7 +173,7 @@ struct AppSelectorView: View {
                 }
                 .font(.system(size: 13))
             }
-            .buttonStyle(.bordered)
+            .glassButtonCompatible()
             .disabled(isPatching)
             Button(action: openCustomApp) {
                 HStack(spacing: 4) {
@@ -183,13 +182,13 @@ struct AppSelectorView: View {
                 }
                 .font(.system(size: 13))
             }
-            .buttonStyle(.bordered)
+            .glassButtonCompatible()
             Spacer()
             Button(action: close) {
                 Text("取消")
                     .font(.system(size: 13, weight: .medium))
             }
-            .buttonStyle(.bordered)
+            .glassButtonCompatible()
             .keyboardShortcut(.cancelAction)
             Button(action: {
                 if let app = viewModel.selectedApp { launchApp(app) }
@@ -200,9 +199,7 @@ struct AppSelectorView: View {
                 }
                 .font(.system(size: 13, weight: .medium))
             }
-            .buttonStyle(.bordered)
-            .background(Color.accentColor)
-            .foregroundColor(.white)
+            .modifier(LaunchButtonStyle())
             .disabled(viewModel.selectedApp == nil)
             .keyboardShortcut(.defaultAction)
         }
@@ -270,6 +267,23 @@ struct AppSelectorView: View {
                     self.showPatchError = true
                 }
             }
+        }
+    }
+}
+
+/// 主按钮「启动并加速」的液态玻璃样式：macOS 26+ 用 `.glass` + accent tint，
+/// 更早系统回退 `.borderedProminent`（自带强调底 + 白字）。
+private struct LaunchButtonStyle: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .buttonStyle(.glass)
+                .tint(Color.accentColor)
+                .foregroundColor(.white)
+        } else {
+            content
+                .buttonStyle(.borderedProminent)
         }
     }
 }

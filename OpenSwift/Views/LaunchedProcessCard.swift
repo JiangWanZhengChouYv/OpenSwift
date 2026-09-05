@@ -159,8 +159,7 @@ struct LaunchedProcessCard: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
-                .scaleEffect(process.isRunning && pulseAnimating ? 1.0 : (process.isRunning ? 0.7 : 1.0))
-                .opacity(process.isRunning && pulseAnimating ? 1.0 : (process.isRunning ? 0.5 : 1.0))
+                .opacity(process.isRunning ? (pulseAnimating ? 0.4 : 1.0) : 1.0)
             
             Text(process.isRunning ? "运行中" : "已停止")
                 .font(.system(size: 9, weight: .medium))
