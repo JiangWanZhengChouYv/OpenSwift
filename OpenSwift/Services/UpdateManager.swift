@@ -133,9 +133,15 @@ final class UpdateManager: ObservableObject {
                     self.phase = .failed
                     self.statusMessage = "安装失败：\(error.localizedDescription)"
                 case .success:
-                    // 安装助手已分离运行：清理并退出，由助手完成替换与重启。
-                    AppState.shared.shutdown()
-                    NSApplication.shared.terminate(nil)
+                    // 安装助手已派发；界面提示即将重启，3 秒后强制退出。
+                    // NSApplication.terminate 会被 modal sheet（如设置窗口）阻塞而不退出，
+                    // 故直接 exit 强杀，由助手脚本完成替换应用包并重启。
+                    self.phase = .installing
+                    self.statusMessage = "下载完成，将在 3 秒后重启…"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        AppState.shared.shutdown()
+                        exit(0)
+                    }
                 }
             }
         }

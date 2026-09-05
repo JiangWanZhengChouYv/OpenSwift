@@ -93,7 +93,7 @@ struct UpdatePanelView: View {
 
         case .installing:
             statusRow(icon: "arrow.triangle.2.circlepath.circle", color: .accentColor,
-                      text: "正在安装新版本并重启…")
+                      text: manager.statusMessage ?? "正在安装新版本并重启…")
                 .frame(maxHeight: .infinity)
 
         case .failed:
