@@ -25,10 +25,7 @@ struct SpeedToggle: View {
             statusIndicator
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 12)
         .animation(.easeInOut(duration: 0.3), value: isEnabled)
     }
     

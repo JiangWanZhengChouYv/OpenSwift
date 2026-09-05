@@ -28,9 +28,7 @@ struct SpeedSliderView: View {
         VStack(spacing: 12) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(isEnabled ? Color.secondary.opacity(0.18) : Color.secondary.opacity(0.18).opacity(0.3))
-                        .frame(height: 8)
+                    trackFill()
                     
                     let progress = calculateProgress()
                     
@@ -41,6 +39,10 @@ struct SpeedSliderView: View {
                     
                     Circle()
                         .fill(Color.white)
+                        .overlay(
+                            Circle()
+                                .stroke(glassSliderStroke(), lineWidth: 1)
+                        )
                         .frame(width: isDragging ? 20 : 16, height: isDragging ? 20 : 16)
                         .shadow(color: Color.black.opacity(isEnabled ? 0.2 : 0.1), radius: 2, x: 0, y: 1)
                         .offset(x: geometry.size.width * progress - (isDragging ? 10 : 8))
@@ -91,6 +93,36 @@ struct SpeedSliderView: View {
         .opacity(isEnabled ? 1.0 : 0.5)
     }
     
+    /// 轨道背景：macOS 26+ 使用半透明玻璃/材质质感；更早系统保留不透明灰带（视觉零变化）。
+    @ViewBuilder
+    private func trackFill() -> some View {
+        Group {
+            if #available(macOS 26.0, *) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isEnabled ? Color.secondary.opacity(0.10) : Color.secondary.opacity(0.18).opacity(0.3))
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(.ultraThinMaterial)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isEnabled ? Color.secondary.opacity(0.18) : Color.secondary.opacity(0.18).opacity(0.3))
+            }
+        }
+        .frame(height: 8)
+        .allowsHitTesting(false)
+    }
+
+    /// 滑块描边：macOS 26+ 加一圈细玻璃高亮边；更早系统为透明（零变化）。
+    private func glassSliderStroke() -> some ShapeStyle {
+        if #available(macOS 26.0, *) {
+            return Color.white.opacity(0.55)
+        } else {
+            return Color.clear
+        }
+    }
+
     private var speedColor: Color {
         if speed < 0.9 {
             return Color(hex: "007AFF")

@@ -101,10 +101,7 @@ extension SpeedControlPanel {
             launchedProcessPathRow(process)
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 12)
     }
     
     private func launchedProcessHeaderContent(_ process: LaunchedProcess) -> some View {
@@ -233,10 +230,7 @@ extension SpeedControlPanel {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 12)
     }
     
     private var launchedProcessCardsSection: some View {

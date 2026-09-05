@@ -64,11 +64,8 @@ struct ProcessRowView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.accentColor)
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
                 }
-                .buttonStyle(.plain)
+                .glassButtonCompatible()
             }
         }
         .padding(.vertical, 8)
@@ -188,19 +185,25 @@ struct ProcessRowViewWithContextMenu: View {
                 Button("0.5x (慢速)") {
                     processManager.updateInjectedProcess(pid: process.pid, speedRatio: 0.5)
                 }
+                .glassButtonCompatible()
                 Button("1.0x (正常)") {
                     processManager.updateInjectedProcess(pid: process.pid, speedRatio: 1.0)
                 }
+                .glassButtonCompatible()
                 Button("1.5x (加速)") {
                     processManager.updateInjectedProcess(pid: process.pid, speedRatio: 1.5)
                 }
+                .glassButtonCompatible()
                 Button("2.0x (快速)") {
                     processManager.updateInjectedProcess(pid: process.pid, speedRatio: 2.0)
                 }
+                .glassButtonCompatible()
                 Button("5.0x (超速)") {
                     processManager.updateInjectedProcess(pid: process.pid, speedRatio: 5.0)
                 }
+                .glassButtonCompatible()
             }
+            .glassButtonCompatible()
         } else {
             Button(action: {
                 processManager.injectSpeedControl(into: process)

@@ -54,3 +54,32 @@ extension View {
         )
     }
 }
+
+// MARK: - Liquid Glass 兼容（macOS 26/27 官方玻璃）
+
+extension View {
+    /// 卡片玻璃背景：macOS 26+ 用官方 `glassEffect(.regular)` 呈现液态玻璃，更早系统回退为不透明卡片底色 + 阴影。
+    /// 调用方保留自己的 hover/状态描边 overlay（Liquid Glass 自带柔和边缘，避免叠加 state stroke）。
+    @ViewBuilder
+    func glassCardBackground(cornerRadius: CGFloat = Design.cornerRadius) -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius))
+        } else {
+            self.background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Design.cardBackground)
+                    .shadow(color: Design.cardShadowColor, radius: Design.cardShadowRadius, x: 0, y: Design.cardShadowY)
+            )
+        }
+    }
+
+    /// 工具栏/操作按钮风格：macOS 26+ 用官方 `.glass` 按钮样式，更早系统回退 `.bordered`。
+    @ViewBuilder
+    func glassButtonCompatible() -> some View {
+        if #available(macOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+}

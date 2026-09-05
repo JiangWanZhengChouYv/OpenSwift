@@ -23,11 +23,7 @@ struct ProcessControlCard: View {
             footerSection
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: Design.cornerRadius)
-                .fill(Design.cardBackground)
-                .shadow(color: Design.cardShadowColor, radius: Design.cardShadowRadius, x: 0, y: Design.cardShadowY)
-        )
+        .glassCardBackground()
         .overlay(
             RoundedRectangle(cornerRadius: Design.cornerRadius)
                 .fill(isHovering ? Design.hoverAccent : Color.clear)
@@ -174,11 +170,7 @@ struct InjectedProcessCard: View {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: Design.cornerRadius)
-                .fill(Design.cardBackground)
-                .shadow(color: Design.cardShadowColor, radius: Design.cardShadowRadius, x: 0, y: Design.cardShadowY)
-        )
+        .glassCardBackground()
         .overlay(
             RoundedRectangle(cornerRadius: Design.cornerRadius)
                 .fill(isHovering ? Design.hoverAccent : Color.clear)

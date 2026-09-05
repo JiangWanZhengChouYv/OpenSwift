@@ -114,10 +114,7 @@ struct HotkeySettingsView: View {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private var batchActionsSection: some View {
@@ -163,10 +160,7 @@ struct HotkeySettingsView: View {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private var tipsSection: some View {
@@ -182,10 +176,7 @@ struct HotkeySettingsView: View {
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private func tipRow(icon: String, text: String) -> some View {

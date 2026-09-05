@@ -325,7 +325,7 @@ struct AboutSettingsView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private func aboutSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -335,7 +335,7 @@ struct AboutSettingsView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+        .glassCardBackground(cornerRadius: 8)
     }
 
     private func featureItem(_ icon: String, _ text: String) -> some View {
@@ -366,7 +366,7 @@ private func settingsSection<Content: View>(title: String, @ViewBuilder content:
             .foregroundColor(.primary)
         content()
             .padding()
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+            .glassCardBackground(cornerRadius: 8)
     }
 }
 

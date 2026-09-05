@@ -42,7 +42,7 @@ struct ContentView: View {
                         }
                         .font(.system(size: 12))
                     }
-                    .buttonStyle(.bordered)
+                    .glassButtonCompatible()
                     .help("打开快捷键设置")
                     
                     Button(action: {
@@ -54,7 +54,7 @@ struct ContentView: View {
                         }
                         .font(.system(size: 12))
                     }
-                    .buttonStyle(.bordered)
+                    .glassButtonCompatible()
                     .help("查看新手引导")
                     
                     Button(action: {
@@ -66,7 +66,7 @@ struct ContentView: View {
                         }
                         .font(.system(size: 12))
                     }
-                    .buttonStyle(.bordered)
+                    .glassButtonCompatible()
                     .help("管理已导入的插件")
                 }
             }
