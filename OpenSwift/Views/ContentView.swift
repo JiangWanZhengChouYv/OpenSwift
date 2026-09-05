@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject private var hotkeyService = HotkeyService.shared
     @State private var showProcessList: Bool = true
     @State private var showHotkeySettings: Bool = false
     @State private var showPluginList: Bool = false
@@ -159,10 +160,10 @@ struct ContentView: View {
     private var hotkeyStatusIndicator: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(HotkeyService.shared.isEnabled ? Color(hex: "34C759") : Color.gray)
+                .fill(indicatorColor)
                 .frame(width: 6, height: 6)
-            
-            Text(HotkeyService.shared.isEnabled ? "快捷键已启用" : "快捷键已禁用")
+
+            Text(indicatorText)
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
@@ -172,6 +173,24 @@ struct ContentView: View {
             Capsule()
                 .fill(Color(NSColor.controlBackgroundColor))
         )
+    }
+
+    /// 快捷键状态指示：已启用+已授权=绿，已启用但未授权=橙，未启用=灰。
+    private var indicatorColor: Color {
+        if hotkeyService.isEnabled {
+            return hotkeyService.hasAccessibilityPermission ? Color(hex: "34C759") : Color(hex: "FF9500")
+        }
+        return Color.gray
+    }
+
+    private var indicatorText: String {
+        if hotkeyService.isEnabled && hotkeyService.hasAccessibilityPermission {
+            return "快捷键已启用"
+        }
+        if hotkeyService.isEnabled && !hotkeyService.hasAccessibilityPermission {
+            return "快捷键待授权"
+        }
+        return "快捷键已禁用"
     }
     
     private var minimizeTipBanner: some View {

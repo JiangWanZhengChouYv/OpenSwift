@@ -13,6 +13,8 @@ class HotkeyService: ObservableObject {
     
     private var hotkeyManager: GlobalHotkeyManager?
     private var isSetup: Bool = false
+    private var pollingTimer: Timer?
+    private var appNapActivity: NSObjectProtocol?
     private let storage = HotkeyStorage.shared
     
     private init() {
@@ -25,10 +27,28 @@ class HotkeyService: ObservableObject {
         guard !isSetup else { return }
         isSetup = true
         
+        startAppNapProtection()
         loadConfigurations()
         checkPermissions()
         
+        // 用户可能在系统设置里授予/撤销辅助功能权限后回到应用。
+        // 每次应用激活时重查一次，授权后自动补注册快捷键。
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleApplicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        
         if AppSettings.shared.hotkeyEnabled {
+            registerHotkeys()
+        }
+    }
+    
+    @objc private func handleApplicationDidBecomeActive() {
+        hasAccessibilityPermission = GlobalHotkeyManager.shared.hasAccessibilityPermissions
+        // 授权刚刚生效 + 未注册 + 用户开启了快捷键 → 补注册。
+        if hasAccessibilityPermission && !isEnabled && AppSettings.shared.hotkeyEnabled {
             registerHotkeys()
         }
     }
@@ -190,8 +210,48 @@ class HotkeyService: ObservableObject {
     
     func checkPermissions() {
         hasAccessibilityPermission = GlobalHotkeyManager.shared.hasAccessibilityPermissions
+        // 授权生效后自动注册快捷键。
+        if hasAccessibilityPermission && !isEnabled && AppSettings.shared.hotkeyEnabled {
+            registerHotkeys()
+        }
+        // 仍待授权则启动轮询，授权异步生效后自动清除「待授权」。
+        if hasAccessibilityPermission {
+            stopPermissionPolling()
+        } else {
+            startPermissionPolling()
+        }
     }
-    
+
+    /// 手动触发一次权限检查（供「重新检查」按钮）。
+    func refreshPermissions() {
+        checkPermissions()
+    }
+
+    /// 待授权时每 1 秒轮询一次，直到授权生效或超时（最长 120 秒）。
+    private func startPermissionPolling() {
+        guard pollingTimer == nil else { return }
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            let trusted = GlobalHotkeyManager.shared.hasAccessibilityPermissions
+            self.hasAccessibilityPermission = trusted
+            if trusted {
+                timer.invalidate()
+                self.pollingTimer = nil
+                if !self.isEnabled && AppSettings.shared.hotkeyEnabled {
+                    self.registerHotkeys()
+                }
+            }
+        }
+    }
+
+    private func stopPermissionPolling() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+    }
+
     func requestPermissions() {
         GlobalHotkeyManager.shared.requestAccessibilityPermissions()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -204,7 +264,29 @@ class HotkeyService: ObservableObject {
     }
     
     func shutdown() {
+        stopPermissionPolling()
+        NotificationCenter.default.removeObserver(self)
+        stopAppNapProtection()
         unregisterHotkeys()
         logInfo("HotkeyService shutdown complete", log: .hotkey)
+    }
+
+    // MARK: - App Nap 抑制
+
+    /// 持有 `.userInitiated` 活动，避免后台时被 App Nap 节流主运行循环，
+    /// 否则 Carbon 热键事件会有 ~1s 的投递延迟。
+    private func startAppNapProtection() {
+        guard appNapActivity == nil else { return }
+        appNapActivity = Foundation.ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated],
+            reason: "保持全局快捷键实时响应"
+        )
+    }
+
+    private func stopAppNapProtection() {
+        if let activity = appNapActivity {
+            Foundation.ProcessInfo.processInfo.endActivity(activity)
+            appNapActivity = nil
+        }
     }
 }

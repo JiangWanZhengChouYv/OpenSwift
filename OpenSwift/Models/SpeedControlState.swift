@@ -40,6 +40,8 @@ class SpeedControlState: ObservableObject {
             if !result {
                 logError("Failed to set speed ratio", log: .speed)
             }
+            // 即时镜像到界面对应进程行，避免等 2s 定时刷新才更新显示。
+            AppLauncherViewModel.shared.reflectSpeedForPID(controller.targetPID)
         } else {
             logDebug("setSpeed called without active process — ignoring shared memory write", log: .speed)
         }
@@ -49,6 +51,7 @@ class SpeedControlState: ObservableObject {
         isEnabled = enabled
         if let controller = currentController {
             _ = controller.setEnabled(enabled)
+            AppLauncherViewModel.shared.reflectSpeedForPID(controller.targetPID)
         }
     }
 

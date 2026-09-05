@@ -23,7 +23,7 @@ class AppLauncherViewModel: ObservableObject {
     private var timer: Timer?
     private var detectTimer: Timer?
     private var isSetup: Bool = false
-    private let stateQueue = DispatchQueue(label: "com.openswift.applaunchervm.state", qos: .userInitiated)
+    let stateQueue = DispatchQueue(label: "com.openswift.applaunchervm.state", qos: .userInitiated)
 
     private init() {
         // 什么也不做
