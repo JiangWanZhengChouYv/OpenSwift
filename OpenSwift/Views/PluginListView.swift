@@ -192,7 +192,11 @@ private struct PluginRow: View {
 
                 Toggle("", isOn: Binding(
                     get: { plugin.isEnabled },
-                    set: onToggle
+                    set: { newValue in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            onToggle(newValue)
+                        }
+                    }
                 ))
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -215,9 +219,12 @@ private struct PluginRow: View {
             }
 
             if plugin.isEnabled && !plugin.manifest.ui.isEmpty {
-                Divider()
-                    .padding(.vertical, 4)
-                controlsArea
+                Group {
+                    Divider()
+                        .padding(.vertical, 4)
+                    controlsArea
+                }
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
             }
         }
         .padding(.vertical, 4)

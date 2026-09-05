@@ -63,6 +63,8 @@ struct SpeedSliderView: View {
                                 }
                         )
                 }
+                // 非拖动（快捷键/快捷按钮）改速时 0.2s 平滑滑动；拖动中 0 延迟保持跟手。
+                .animation(.easeInOut(duration: isDragging ? 0.0 : 0.2), value: speed)
             }
             .frame(height: 20)
             
