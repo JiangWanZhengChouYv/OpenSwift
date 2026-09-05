@@ -76,7 +76,7 @@ struct SpeedControlPanel: View {
                     Image(systemName: "gearshape")
                         .font(.system(size: 14))
                 }
-                .buttonStyle(.plain)
+                .glassIconButtonCompatible()
                 .help("设置")
             }
             .padding()
