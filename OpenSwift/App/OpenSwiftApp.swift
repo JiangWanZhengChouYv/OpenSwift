@@ -29,28 +29,6 @@ struct OpenSwiftApp: App {
                 }
             }
             
-            CommandMenu("编辑") {
-                Button("撤销") { }
-                .keyboardShortcut("z", modifiers: .command)
-                
-                Button("重做") { }
-                .keyboardShortcut("Z", modifiers: [.command, .shift])
-                
-                Divider()
-                
-                Button("剪切") { }
-                .keyboardShortcut("x", modifiers: .command)
-                
-                Button("复制") { }
-                .keyboardShortcut("c", modifiers: .command)
-                
-                Button("粘贴") { }
-                .keyboardShortcut("v", modifiers: .command)
-                
-                Button("全选") { }
-                .keyboardShortcut("a", modifiers: .command)
-            }
-            
             CommandMenu("工具") {
                 Button("静态打包应用...") {
                     AppState.shared.staticPatchFlowFromMenu()
