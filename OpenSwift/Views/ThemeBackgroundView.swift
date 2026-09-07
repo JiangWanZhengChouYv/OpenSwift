@@ -7,7 +7,7 @@ struct ThemeBackgroundView: View {
     var body: some View {
         backgroundContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .opacity(settings.backgroundOpacity)
+            .opacity(1 - settings.backgroundTransparency)
     }
 
     @ViewBuilder private var backgroundContent: some View {

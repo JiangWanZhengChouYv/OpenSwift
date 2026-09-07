@@ -34,7 +34,7 @@ struct SettingsKeys {
     static let gradientEndHex = "GradientEndHex"
     static let backgroundImagePath = "BackgroundImagePath"
     static let remoteBackgroundURL = "RemoteBackgroundURL"
-    static let backgroundOpacity = "BackgroundOpacity"
+    static let backgroundTransparency = "BackgroundTransparency"
 }
 
 class SettingsStorage {
@@ -74,7 +74,7 @@ class SettingsStorage {
             SettingsKeys.gradientEndHex: "",
             SettingsKeys.backgroundImagePath: "",
             SettingsKeys.remoteBackgroundURL: "",
-            SettingsKeys.backgroundOpacity: 1.0,
+            SettingsKeys.backgroundTransparency: 0.0,
 
             SettingsKeys.settingsVersion: currentVersion
         ]
