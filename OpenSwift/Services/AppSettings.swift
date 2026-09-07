@@ -190,6 +190,10 @@ class AppSettings: ObservableObject {
         didSet { storage.save(remoteBackgroundURL, forKey: SettingsKeys.remoteBackgroundURL) }
     }
 
+    @Published var backgroundOpacity: Double = 1.0 {
+        didSet { storage.save(backgroundOpacity, forKey: SettingsKeys.backgroundOpacity) }
+    }
+
     private init() {
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
@@ -222,6 +226,7 @@ class AppSettings: ObservableObject {
         gradientEndHex = storage.loadString(forKey: SettingsKeys.gradientEndHex) ?? ""
         backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
         remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
+        backgroundOpacity = storage.loadDouble(forKey: SettingsKeys.backgroundOpacity)
     }
 
     func bootstrapSideEffects() {
@@ -272,6 +277,7 @@ class AppSettings: ObservableObject {
         gradientEndHex = storage.loadString(forKey: SettingsKeys.gradientEndHex) ?? ""
         backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
         remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
+        backgroundOpacity = storage.loadDouble(forKey: SettingsKeys.backgroundOpacity)
     }
 
     func resetToDefaults() {

@@ -39,6 +39,9 @@ struct AppearanceSettingsSection: View {
             darkModePicker
             backgroundStylePicker
             backgroundControlView
+            if settings.backgroundStyle != .none {
+                opacitySlider
+            }
             previewView
         }
     }
@@ -103,9 +106,23 @@ struct AppearanceSettingsSection: View {
         }
     }
 
+    private var opacitySlider: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("背景不透明度").font(.system(size: 13))
+                Spacer()
+                Text("\(Int(round(settings.backgroundOpacity * 100)))%")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            Slider(value: $settings.backgroundOpacity, in: 0...1, step: 0.05)
+        }
+    }
+
     private var previewView: some View {
         ZStack {
             previewBackground
+                .opacity(settings.backgroundOpacity)
             if settings.backgroundStyle == .none {
                 Text("无背景")
                     .font(.system(size: 12))
