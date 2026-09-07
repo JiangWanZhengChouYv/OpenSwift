@@ -5,6 +5,11 @@ struct ThemeBackgroundView: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
+        backgroundContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder private var backgroundContent: some View {
         switch settings.backgroundStyle {
         case .none:
             Color.clear

@@ -307,7 +307,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
             .padding()
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(Color.clear)
             
             Divider()
             

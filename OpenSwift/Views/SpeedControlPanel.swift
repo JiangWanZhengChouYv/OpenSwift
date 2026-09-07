@@ -28,7 +28,7 @@ struct SpeedControlPanel: View {
             
             statusBarSection
         }
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(Color.clear)
     }
     
     @ViewBuilder

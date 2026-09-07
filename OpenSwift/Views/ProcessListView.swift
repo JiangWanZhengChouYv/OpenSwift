@@ -29,7 +29,7 @@ struct ProcessListView: View {
                 processList
             }
         }
-        .background(Color(NSColor.controlBackgroundColor))
+        .background(Color.clear)
     }
     
     private var searchBar: some View {
