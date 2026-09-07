@@ -1,6 +1,45 @@
 import Foundation
 import Combine
 import AppKit
+import SwiftUI
+
+enum DarkModePreference: String, Codable, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .light: return "浅色"
+        case .dark: return "深色"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
+
+enum BackgroundStyle: String, Codable, CaseIterable, Identifiable {
+    case none, color, gradient, image, remoteImage
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .none: return "无"
+        case .color: return "纯色"
+        case .gradient: return "渐变色"
+        case .image: return "图片"
+        case .remoteImage: return "在线图片"
+        }
+    }
+}
 
 class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -123,6 +162,34 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var darkMode: DarkModePreference = .system {
+        didSet { storage.save(darkMode.rawValue, forKey: SettingsKeys.darkModePreference) }
+    }
+
+    @Published var backgroundStyle: BackgroundStyle = .none {
+        didSet { storage.save(backgroundStyle.rawValue, forKey: SettingsKeys.backgroundStyle) }
+    }
+
+    @Published var backgroundColorHex: String = "" {
+        didSet { storage.save(backgroundColorHex, forKey: SettingsKeys.backgroundColorHex) }
+    }
+
+    @Published var gradientStartHex: String = "" {
+        didSet { storage.save(gradientStartHex, forKey: SettingsKeys.gradientStartHex) }
+    }
+
+    @Published var gradientEndHex: String = "" {
+        didSet { storage.save(gradientEndHex, forKey: SettingsKeys.gradientEndHex) }
+    }
+
+    @Published var backgroundImagePath: String = "" {
+        didSet { storage.save(backgroundImagePath, forKey: SettingsKeys.backgroundImagePath) }
+    }
+
+    @Published var remoteBackgroundURL: String = "" {
+        didSet { storage.save(remoteBackgroundURL, forKey: SettingsKeys.remoteBackgroundURL) }
+    }
+
     private init() {
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
@@ -145,6 +212,16 @@ class AppSettings: ObservableObject {
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
         hookWallclockDefault = storage.loadBool(forKey: SettingsKeys.hookWallclockDefault, defaultValue: true)
+
+        let darkModeRaw = storage.loadString(forKey: SettingsKeys.darkModePreference) ?? ""
+        darkMode = DarkModePreference(rawValue: darkModeRaw) ?? .system
+        let backgroundStyleRaw = storage.loadString(forKey: SettingsKeys.backgroundStyle) ?? ""
+        backgroundStyle = BackgroundStyle(rawValue: backgroundStyleRaw) ?? .none
+        backgroundColorHex = storage.loadString(forKey: SettingsKeys.backgroundColorHex) ?? ""
+        gradientStartHex = storage.loadString(forKey: SettingsKeys.gradientStartHex) ?? ""
+        gradientEndHex = storage.loadString(forKey: SettingsKeys.gradientEndHex) ?? ""
+        backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
+        remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
     }
 
     func bootstrapSideEffects() {
@@ -185,6 +262,16 @@ class AppSettings: ObservableObject {
         maxHistoryCount = storage.loadInt(forKey: SettingsKeys.maxHistoryCount)
         autoCleanupInactive = storage.loadBool(forKey: SettingsKeys.autoCleanupInactive)
         hookWallclockDefault = storage.loadBool(forKey: SettingsKeys.hookWallclockDefault, defaultValue: true)
+
+        let darkModeRaw = storage.loadString(forKey: SettingsKeys.darkModePreference) ?? ""
+        darkMode = DarkModePreference(rawValue: darkModeRaw) ?? .system
+        let backgroundStyleRaw = storage.loadString(forKey: SettingsKeys.backgroundStyle) ?? ""
+        backgroundStyle = BackgroundStyle(rawValue: backgroundStyleRaw) ?? .none
+        backgroundColorHex = storage.loadString(forKey: SettingsKeys.backgroundColorHex) ?? ""
+        gradientStartHex = storage.loadString(forKey: SettingsKeys.gradientStartHex) ?? ""
+        gradientEndHex = storage.loadString(forKey: SettingsKeys.gradientEndHex) ?? ""
+        backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
+        remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
     }
 
     func resetToDefaults() {

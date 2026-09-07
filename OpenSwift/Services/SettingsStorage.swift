@@ -26,6 +26,14 @@ struct SettingsKeys {
     static let hookWallclockDefault = "HookWallclockDefault"
 
     static let settingsVersion = "SettingsVersion"
+
+    static let darkModePreference = "DarkModePreference"
+    static let backgroundStyle = "BackgroundStyle"
+    static let backgroundColorHex = "BackgroundColorHex"
+    static let gradientStartHex = "GradientStartHex"
+    static let gradientEndHex = "GradientEndHex"
+    static let backgroundImagePath = "BackgroundImagePath"
+    static let remoteBackgroundURL = "RemoteBackgroundURL"
 }
 
 class SettingsStorage {
@@ -57,6 +65,14 @@ class SettingsStorage {
             SettingsKeys.maxHistoryCount: 100,
             SettingsKeys.autoCleanupInactive: true,
             SettingsKeys.hookWallclockDefault: true,
+
+            SettingsKeys.darkModePreference: "system",
+            SettingsKeys.backgroundStyle: "none",
+            SettingsKeys.backgroundColorHex: "",
+            SettingsKeys.gradientStartHex: "",
+            SettingsKeys.gradientEndHex: "",
+            SettingsKeys.backgroundImagePath: "",
+            SettingsKeys.remoteBackgroundURL: "",
 
             SettingsKeys.settingsVersion: currentVersion
         ]

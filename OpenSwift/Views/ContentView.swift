@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject private var hotkeyService = HotkeyService.shared
+    @ObservedObject private var appearanceSettings = AppSettings.shared
     @State private var showProcessList: Bool = true
     @State private var showHotkeySettings: Bool = false
     @State private var showPluginList: Bool = false
@@ -28,6 +29,11 @@ struct ContentView: View {
             )
         }
         .frame(minWidth: 900, minHeight: 600)
+        .background {
+            ThemeBackgroundView(settings: appearanceSettings)
+                .ignoresSafeArea()
+        }
+        .preferredColorScheme(appearanceSettings.darkMode.colorScheme)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 12) {
