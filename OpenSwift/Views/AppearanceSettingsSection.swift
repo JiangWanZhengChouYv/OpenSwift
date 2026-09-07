@@ -109,7 +109,7 @@ struct AppearanceSettingsSection: View {
     private var opacitySlider: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("背景透明度").font(.system(size: 13))
+                Text("背景不透明度").font(.system(size: 13))
                 Spacer()
                 Text("\(Int(round(settings.backgroundTransparency * 100)))%")
                     .font(.system(size: 12))
