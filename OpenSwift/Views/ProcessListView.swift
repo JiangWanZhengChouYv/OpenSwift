@@ -60,7 +60,7 @@ struct ProcessListView: View {
             }
         }
         .padding(8)
-        .background(Color(NSColor.textBackgroundColor))
+        .background(Color.clear)
         .cornerRadius(8)
     }
     

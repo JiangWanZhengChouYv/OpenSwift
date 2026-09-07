@@ -80,7 +80,7 @@ struct SpeedControlPanel: View {
                 .help("设置")
             }
             .padding()
-            .background(Color(NSColor.controlBackgroundColor))
+            .background(Color.clear)
         }
         .sheet(isPresented: $showGroupManager) {
             GroupManagerView(processManager: processManager)
@@ -381,6 +381,6 @@ extension SpeedControlPanel {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Design.panelBackground)
+        .background(Color.clear)
     }
 }
