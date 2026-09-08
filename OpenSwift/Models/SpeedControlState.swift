@@ -43,7 +43,7 @@ class SpeedControlState: ObservableObject {
         if AppSettings.shared.speedSmoothingEnabled {
             let start = Float(controller.getSpeedRatio())
             let duration = AppSettings.shared.speedSmoothingDuration
-            SpeedSmoother.shared.apply(from: start, to: Float(clamped), duration: duration) { ratio in
+            SpeedSmoother.shared.apply(pid: pid, from: start, to: Float(clamped), duration: duration) { ratio in
                 _ = controller.setSpeedRatio(ratio)
                 // 即时镜像到界面对应进程行，避免等 2s 定时刷新才更新显示。
                 AppLauncherViewModel.shared.reflectSpeedForPID(pid)
@@ -78,6 +78,14 @@ class SpeedControlState: ObservableObject {
             currentSpeed = Double(state.speedRatio)
             isEnabled = state.isEnabled
         }
+    }
+
+    /// 从当前选中进程的共享内存回填 currentSpeed/isEnabled（与面板显示保持同一来源）。
+    /// 供选中进程切换、面板写速、快捷键等路径在读取基数前调用，避免基于陈旧 currentSpeed 计算。
+    func syncFromController() {
+        guard let controller = currentController else { return }
+        currentSpeed = Double(controller.getSpeedRatio())
+        isEnabled = controller.isEnabled()
     }
 
     private func recordError(_ message: String) {

@@ -178,6 +178,7 @@ class AppLauncherViewModel: ObservableObject {
                 return mutable
             }
             SpeedControlState.shared.currentController = fetchProcess(for: process.id)?.speedController
+            SpeedControlState.shared.syncFromController()
         } else {
             SpeedControlState.shared.currentController = nil
         }

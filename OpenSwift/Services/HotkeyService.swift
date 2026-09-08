@@ -163,11 +163,13 @@ class HotkeyService: ObservableObject {
             
             switch action {
             case .increaseSpeed:
+                speedControlState.syncFromController()
                 let newSpeed = min(speedControlState.currentSpeed + 0.5, 10.0)
                 speedControlState.setSpeed(newSpeed)
                 logDebug("Increase speed to \(newSpeed)", log: .hotkey)
-                
+
             case .decreaseSpeed:
+                speedControlState.syncFromController()
                 let newSpeed = max(speedControlState.currentSpeed - 0.5, 0.1)
                 speedControlState.setSpeed(newSpeed)
                 logDebug("Decrease speed to \(newSpeed)", log: .hotkey)
