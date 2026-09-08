@@ -9,6 +9,8 @@ struct SpeedControlPanel: View {
     @State private var showProcessList: Bool = true
     @State private var showGroupManager: Bool = false
     @State private var showSettings: Bool = false
+    @State var showStatistics: Bool = false
+    @ObservedObject var statistics = SpeedStatistics.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -20,6 +22,8 @@ struct SpeedControlPanel: View {
                 VStack(spacing: 20) {
                     // 只显示已启动进程，Mach 注入代码保留但隐藏
                     launchedProcessesView
+
+                    speedStatisticsSection
                 }
                 .padding()
             }
@@ -217,7 +221,7 @@ extension SpeedControlPanel {
                     speed: Binding(
                         get: { currentProcess.currentSpeed },
                         set: { newValue in
-                            appLauncherViewModel.updateSpeed(newValue, for: currentProcess)
+                            appLauncherViewModel.updateSpeed(newValue, for: currentProcess, smooth: false)
                         }
                     ),
                     isEnabled: currentProcess.isSpeedControlEnabled

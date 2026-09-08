@@ -183,22 +183,6 @@ class AppLauncherViewModel: ObservableObject {
         }
     }
 
-    func updateSpeed(_ speed: Double, for process: LaunchedProcess) {
-        updateProcessState(for: process.id) { current in
-            var mutable = current
-            if !mutable.speedController.isConnected {
-                let success = mutable.speedController.attachToProcess(pid: process.pid)
-                if !success {
-                    logError("Failed to attach to process \(process.pid) before setting speed", log: .launcher)
-                    return nil
-                }
-            }
-            _ = mutable.speedController.setSpeedRatio(Float(speed))
-            mutable.currentSpeed = speed
-            return mutable
-        }
-    }
-
     /// 设速的同时启用该进程的速度控制（写 is_active=1），供插件桥 `openSwift.setSpeed` 调用。
     @discardableResult
     func setSpeedAndEnabled(_ speed: Double, for process: LaunchedProcess) -> Bool {

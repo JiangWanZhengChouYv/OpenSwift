@@ -194,6 +194,14 @@ class AppSettings: ObservableObject {
         didSet { storage.save(backgroundTransparency, forKey: SettingsKeys.backgroundTransparency) }
     }
 
+    @Published var speedSmoothingEnabled: Bool = true {
+        didSet { storage.save(speedSmoothingEnabled, forKey: SettingsKeys.speedSmoothingEnabled) }
+    }
+
+    @Published var speedSmoothingDuration: Double = 0.3 {
+        didSet { storage.save(speedSmoothingDuration, forKey: SettingsKeys.speedSmoothingDuration) }
+    }
+
     private init() {
         isFirstLaunch = storage.loadBool(forKey: SettingsKeys.isFirstLaunch, defaultValue: true)
         launchAtLogin = storage.loadBool(forKey: SettingsKeys.launchAtLogin)
@@ -227,6 +235,8 @@ class AppSettings: ObservableObject {
         backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
         remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
         backgroundTransparency = storage.loadDouble(forKey: SettingsKeys.backgroundTransparency)
+        speedSmoothingEnabled = storage.loadBool(forKey: SettingsKeys.speedSmoothingEnabled, defaultValue: true)
+        speedSmoothingDuration = storage.loadDouble(forKey: SettingsKeys.speedSmoothingDuration)
     }
 
     func bootstrapSideEffects() {
@@ -278,6 +288,8 @@ class AppSettings: ObservableObject {
         backgroundImagePath = storage.loadString(forKey: SettingsKeys.backgroundImagePath) ?? ""
         remoteBackgroundURL = storage.loadString(forKey: SettingsKeys.remoteBackgroundURL) ?? ""
         backgroundTransparency = storage.loadDouble(forKey: SettingsKeys.backgroundTransparency)
+        speedSmoothingEnabled = storage.loadBool(forKey: SettingsKeys.speedSmoothingEnabled, defaultValue: true)
+        speedSmoothingDuration = storage.loadDouble(forKey: SettingsKeys.speedSmoothingDuration)
     }
 
     func resetToDefaults() {

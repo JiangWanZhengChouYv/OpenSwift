@@ -120,7 +120,7 @@ struct InterfaceSettingsView: View {
                     }
                 }
                 settingsSection(title: "速度控制") {
-                    settingToggle($settings.rememberSpeedPerProcess, label: "记住速度设置", desc: "恢复上次速度")
+                    SpeedSettingsSection()
                 }
                 AppearanceSettingsSection(settings: settings)
                 Spacer()

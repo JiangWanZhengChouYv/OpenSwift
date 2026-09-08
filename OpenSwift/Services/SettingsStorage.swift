@@ -35,6 +35,9 @@ struct SettingsKeys {
     static let backgroundImagePath = "BackgroundImagePath"
     static let remoteBackgroundURL = "RemoteBackgroundURL"
     static let backgroundTransparency = "BackgroundTransparency"
+
+    static let speedSmoothingEnabled = "SpeedSmoothingEnabled"
+    static let speedSmoothingDuration = "SpeedSmoothingDuration"
 }
 
 class SettingsStorage {
@@ -75,6 +78,9 @@ class SettingsStorage {
             SettingsKeys.backgroundImagePath: "",
             SettingsKeys.remoteBackgroundURL: "",
             SettingsKeys.backgroundTransparency: 0.0,
+
+            SettingsKeys.speedSmoothingEnabled: true,
+            SettingsKeys.speedSmoothingDuration: 0.3,
 
             SettingsKeys.settingsVersion: currentVersion
         ]

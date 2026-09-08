@@ -33,17 +33,27 @@ class SpeedControlState: ObservableObject {
 
     func setSpeed(_ speed: Double) {
         let clamped = min(max(speed, minSpeed), maxSpeed)
+        guard let controller = currentController else {
+            currentSpeed = clamped
+            logDebug("setSpeed called without active process — ignoring shared memory write", log: .speed)
+            return
+        }
         currentSpeed = clamped
-
-        if let controller = currentController {
+        let pid = controller.targetPID
+        if AppSettings.shared.speedSmoothingEnabled {
+            let start = Float(controller.getSpeedRatio())
+            let duration = AppSettings.shared.speedSmoothingDuration
+            SpeedSmoother.shared.apply(from: start, to: Float(clamped), duration: duration) { ratio in
+                _ = controller.setSpeedRatio(ratio)
+                // 即时镜像到界面对应进程行，避免等 2s 定时刷新才更新显示。
+                AppLauncherViewModel.shared.reflectSpeedForPID(pid)
+            }
+        } else {
             let result = controller.setSpeedRatio(Float(clamped))
             if !result {
                 logError("Failed to set speed ratio", log: .speed)
             }
-            // 即时镜像到界面对应进程行，避免等 2s 定时刷新才更新显示。
-            AppLauncherViewModel.shared.reflectSpeedForPID(controller.targetPID)
-        } else {
-            logDebug("setSpeed called without active process — ignoring shared memory write", log: .speed)
+            AppLauncherViewModel.shared.reflectSpeedForPID(pid)
         }
     }
 
