@@ -104,3 +104,20 @@ targets:
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
         MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+  SpeedTestApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: SpeedTestApp
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openswift.speedtest
+        PRODUCT_NAME: SpeedTestApp
+        INFOPLIST_FILE: SpeedTestApp/Info.plist
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
