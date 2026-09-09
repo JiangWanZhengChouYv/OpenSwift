@@ -19,6 +19,21 @@ extension AppLauncherViewModel {
         }
     }
 
+    /// 按稳定 pid 直接更新行的速度控制开关状态（供共享内存字节与 UI 行同步）。
+    @discardableResult
+    func panelSetSpeedControlEnabled(_ enabled: Bool, forPID pid: pid_t) -> Bool {
+        stateQueue.sync {
+            guard let index = launchedProcesses.firstIndex(where: { $0.pid == pid }) else { return false }
+            var row = launchedProcesses[index]
+            row.isSpeedControlEnabled = enabled
+            launchedProcesses[index] = row
+            if selectedLaunchedProcess?.pid == pid {
+                selectedLaunchedProcess?.isSpeedControlEnabled = enabled
+            }
+            return true
+        }
+    }
+
     /// 把指定 pid 的共享内存速度/启停状态即时镜像到对应行，供快捷键等绕过 UI 改速的路径使用。
     @discardableResult
     func reflectSpeedForPID(_ pid: pid_t) -> Bool {

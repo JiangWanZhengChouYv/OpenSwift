@@ -24,6 +24,14 @@ extension AppLauncherViewModel {
             logError("Failed to attach to process \(pid) before setting speed", log: .launcher)
             return
         }
+        // 设倍率即启用加速：SpeedPatch 需 is_active 与 hook_wallclock 同时为 1 才实际缩放时间，
+        // 否则只写 speed_ratio 而不加速（对齐插件 setSpeedAndEnabled 的三开关语义）。
+        _ = controller.setHookWallclock(AppSettings.shared.hookWallclockDefault)
+        _ = controller.setEnabled(true)
+        panelSetSpeedControlEnabled(true, forPID: pid)
+        if pid == SpeedControlState.shared.currentController?.targetPID {
+            SpeedControlState.shared.isEnabled = true
+        }
         let smoothing = smooth && AppSettings.shared.speedSmoothingEnabled
         let duration = AppSettings.shared.speedSmoothingDuration
         if smoothing {
