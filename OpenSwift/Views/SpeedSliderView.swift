@@ -63,8 +63,9 @@ struct SpeedSliderView: View {
                                 }
                         )
                 }
-                // 非拖动（快捷键/快捷按钮）改速时 0.2s 平滑滑动；拖动中 0 延迟保持跟手。
-                .animation(.easeInOut(duration: isDragging ? 0.0 : 0.2), value: speed)
+                // slider 显示直接跟随模型 speed 值（单一驱动源），无展示层插值动画。
+                // 平滑由底层平滑器（SpeedSmoother）逐 16ms 步进写共享内存并 reflectSpeedForPID
+                // 读回刷新 currentSpeed 驱动，不再叠加 presentation 动画，保证 UI 与底层同源同步。
             }
             .frame(height: 20)
             
