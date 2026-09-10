@@ -322,7 +322,7 @@ private struct SpeedControlSection: View {
                         get: { currentSpeed },
                         set: { newValue in
                             currentSpeed = newValue
-                            appLauncherViewModel.updateSpeed(newValue, for: process)
+                            appLauncherViewModel.updateSpeed(newValue, for: process, smooth: false)
                         }
                     ),
                     in: 0.1...15.0,

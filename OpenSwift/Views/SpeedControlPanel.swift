@@ -224,7 +224,16 @@ extension SpeedControlPanel {
                             appLauncherViewModel.updateSpeed(newValue, for: currentProcess, smooth: false)
                         }
                     ),
-                    isEnabled: currentProcess.isSpeedControlEnabled
+                    isEnabled: currentProcess.isSpeedControlEnabled,
+                    onAnimatedSpeedChange: { animatedSpeed in
+                        // UI 平滑动画的每一帧插值直写共享内存：UI 显示值与底层逐帧同值（等同手拖）。
+                        // 与共享内存当前值一致时跳过，避免无谓写入。
+                        let controller = currentProcess.speedController
+                        if controller.isConnected, abs(Double(controller.getSpeedRatio()) - animatedSpeed) < 0.0005 {
+                            return
+                        }
+                        appLauncherViewModel.writeSpeedToSharedMemory(animatedSpeed, forPID: currentProcess.pid)
+                    }
                 )
 
                 wallclockToggleSection(for: currentProcess)

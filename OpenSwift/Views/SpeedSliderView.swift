@@ -3,12 +3,16 @@ import SwiftUI
 struct SpeedSliderView: View {
     @Binding var speed: Double
     let isEnabled: Bool
+    /// 平滑动画每帧回调：把当前插值原样交给调用方，用于直写目标进程共享内存。
+    /// UI 动画是平滑的唯一驱动源；未提供该回调时纯展示、不写共享内存。
+    var onAnimatedSpeedChange: ((Double) -> Void)? = nil
+
     let range: ClosedRange<Double> = 0.1...15.0
-    
+
     // 拖动状态用 @GestureState：由 gesture 的 .updating 驱动，
     // 避免在 onChanged/onEnded 里给 @State 赋值（严格并发下会报 self immutable）。
     @GestureState private var isDragging: Bool = false
-    
+
     private let tickMarks: [Double] = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0]
 
     /// 倍率采用对数刻度：低速区间拉开、高速区间压缩，刻度均匀且拖动平滑。
@@ -23,20 +27,28 @@ struct SpeedSliderView: View {
         let hi = log(15.0)
         return exp(lo + fraction * (hi - lo))
     }
-    
+
+    /// 平滑动画：拖动中（跟手）与「关闭平滑过渡」时长为 0（瞬时）；否则用配置的平滑时长。
+    private var smoothingAnimation: Animation {
+        if isDragging || !AppSettings.shared.speedSmoothingEnabled {
+            return .linear(duration: 0)
+        }
+        return .easeInOut(duration: AppSettings.shared.speedSmoothingDuration)
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     trackFill()
-                    
+
                     let progress = calculateProgress()
-                    
+
                     RoundedRectangle(cornerRadius: 4)
                         .fill(isEnabled ? speedColor : Color.secondary.opacity(0.18))
                         .frame(width: geometry.size.width * progress, height: 8)
                         .opacity(isEnabled ? 1.0 : 0.3)
-                    
+
                     Circle()
                         .fill(Color.white)
                         .overlay(
@@ -63,12 +75,14 @@ struct SpeedSliderView: View {
                                 }
                         )
                 }
-                // slider 显示直接跟随模型 speed 值（单一驱动源），无展示层插值动画。
-                // 平滑由底层平滑器（SpeedSmoother）逐 16ms 步进写共享内存并 reflectSpeedForPID
-                // 读回刷新 currentSpeed 驱动，不再叠加 presentation 动画，保证 UI 与底层同源同步。
+                // UI 动画是平滑的唯一驱动源：拖动中/关闭平滑时长为 0（瞬时跟手），否则用配置时长。
+                // SpeedAnimationDriver 把动画每一帧的插值回调出去直写共享内存，
+                // 从而底层与 UI 显示逐帧同值（等同手拖：UI 变化即写底层）。
+                .modifier(SpeedAnimationDriver(value: speed, onChange: onAnimatedSpeedChange))
+                .animation(smoothingAnimation, value: speed)
             }
             .frame(height: 20)
-            
+
             GeometryReader { geometry in
                 let width = geometry.size.width
                 ZStack(alignment: .topLeading) {
@@ -95,7 +109,7 @@ struct SpeedSliderView: View {
         .animation(.easeOut(duration: 0.15), value: isDragging)
         .opacity(isEnabled ? 1.0 : 0.5)
     }
-    
+
     /// 轨道背景：macOS 26+ 使用半透明玻璃/材质质感；更早系统保留不透明灰带（视觉零变化）。
     @ViewBuilder
     private func trackFill() -> some View {
@@ -135,18 +149,18 @@ struct SpeedSliderView: View {
             return Color(hex: "34C759")
         }
     }
-    
+
     private func calculateProgress() -> Double {
         return fraction(for: speed)
     }
-    
+
     private func formatSpeed(_ value: Double) -> String {
         if value.rounded() == value {
             return String(format: "%.0fx", value)
         }
         return String(format: "%.1fx", value)
     }
-    
+
     private func tickColor(for tick: Double) -> Color {
         if abs(tick - speed) < 0.05 {
             return speedColor
@@ -163,11 +177,32 @@ struct SpeedSliderView_Previews: PreviewProvider {
                 .padding()
                 .frame(width: 400)
                 .previewDisplayName("Enabled")
-            
+
             SpeedSliderView(speed: .constant(1.0), isEnabled: false)
                 .padding()
                 .frame(width: 400)
                 .previewDisplayName("Disabled")
         }
+    }
+}
+
+/// UI 动画驱动：以显示速度为 `animatableData`。SwiftUI 在平滑动画的每一帧用插值调用其 setter，
+/// 这里把每一帧的插值原样回调出去直写共享内存，从而让「UI 显示值 == 底层共享内存值」逐帧一致。
+/// 该修饰符不参与内容渲染（显示仍由 `.animation` 驱动，保持原有平滑观感，不引入第二个动画源）。
+/// 无动画（时长为 0）时 setter 仍会以终值回调一次，保证终值一定落入共享内存。
+private struct SpeedAnimationDriver: AnimatableModifier {
+    var value: Double
+    let onChange: ((Double) -> Void)?
+
+    var animatableData: Double {
+        get { value }
+        set {
+            value = newValue
+            onChange?(newValue)
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
     }
 }
