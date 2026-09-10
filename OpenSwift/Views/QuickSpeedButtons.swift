@@ -21,7 +21,6 @@ struct QuickSpeedButtons: View {
             
             presetButtons
         }
-        .animation(.easeInOut(duration: 0.2), value: speed)
         .opacity(isEnabled ? 1.0 : 0.5)
     }
     
@@ -107,9 +106,7 @@ struct QuickSpeedButtons: View {
     
     private func handleTap(_ preset: (speed: Double, label: String)) {
         guard isEnabled else { return }
-        withAnimation(.easeInOut(duration: 0.2)) {
-            speed = preset.speed
-        }
+        speed = preset.speed
         provideHapticFeedback()
     }
     

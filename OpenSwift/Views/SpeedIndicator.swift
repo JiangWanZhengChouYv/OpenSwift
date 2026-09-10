@@ -4,7 +4,6 @@ struct SpeedIndicator: View {
     let speed: Double
     let isEnabled: Bool
     
-    @State private var animatedSpeed: Double = 1.0
     @State private var pulseAnimation: Bool = false
     
     private let size: CGFloat = 150
@@ -28,7 +27,6 @@ struct SpeedIndicator: View {
                 )
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.3), value: animatedSpeed)
             
             if isEnabled {
                 Circle()
@@ -46,29 +44,20 @@ struct SpeedIndicator: View {
             }
             
             VStack(spacing: 4) {
-                Text(String(format: "%.1fx", animatedSpeed))
+                Text(String(format: "%.1fx", speed))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(speedColor)
-                    .animation(.easeInOut(duration: 0.2), value: animatedSpeed)
                 
                 Text(statusText)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.secondary)
             }
         }
-        .onAppear {
-            animatedSpeed = speed
-        }
-        .onChange(of: speed) { newSpeed in
-            withAnimation(.easeInOut(duration: 0.3)) {
-                animatedSpeed = newSpeed
-            }
-        }
     }
     
     private var progress: Double {
         let range: ClosedRange<Double> = 0.1...15.0
-        let normalized = (animatedSpeed - range.lowerBound) / (range.upperBound - range.lowerBound)
+        let normalized = (speed - range.lowerBound) / (range.upperBound - range.lowerBound)
         return min(max(normalized, 0), 1)
     }
     
@@ -77,9 +66,9 @@ struct SpeedIndicator: View {
             return Color(NSColor.systemGray)
         }
         
-        if animatedSpeed < 0.9 {
+        if speed < 0.9 {
             return Color(hex: "007AFF")
-        } else if animatedSpeed > 1.1 {
+        } else if speed > 1.1 {
             return Color(hex: "FF9500")
         } else {
             return Color(hex: "34C759")
@@ -91,9 +80,9 @@ struct SpeedIndicator: View {
             return "已禁用"
         }
         
-        if animatedSpeed < 0.9 {
+        if speed < 0.9 {
             return "减速模式"
-        } else if animatedSpeed > 1.1 {
+        } else if speed > 1.1 {
             return "加速模式"
         } else {
             return "正常速度"

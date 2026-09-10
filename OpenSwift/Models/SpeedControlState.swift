@@ -33,13 +33,28 @@ class SpeedControlState: ObservableObject {
 
     func setSpeed(_ speed: Double) {
         let clamped = min(max(speed, minSpeed), maxSpeed)
-        currentSpeed = clamped
         guard let controller = currentController else {
+            currentSpeed = clamped
             logDebug("setSpeed called without active process — ignoring shared memory write", log: .speed)
             return
         }
-        // 只设目标模型值：共享内存由该进程速度滑块的 UI 动画逐帧直写（UI 是唯一驱动源）。
-        AppLauncherViewModel.shared.setModelSpeed(clamped, forPID: controller.targetPID)
+        currentSpeed = clamped
+        let pid = controller.targetPID
+        if AppSettings.shared.speedSmoothingEnabled {
+            let start = Float(controller.getSpeedRatio())
+            let duration = AppSettings.shared.speedSmoothingDuration
+            SpeedSmoother.shared.apply(pid: pid, from: start, to: Float(clamped), duration: duration) { ratio in
+                _ = controller.setSpeedRatio(ratio)
+                // 即时镜像到界面对应进程行，避免等 2s 定时刷新才更新显示。
+                AppLauncherViewModel.shared.reflectSpeedForPID(pid)
+            }
+        } else {
+            let result = controller.setSpeedRatio(Float(clamped))
+            if !result {
+                logError("Failed to set speed ratio", log: .speed)
+            }
+            AppLauncherViewModel.shared.reflectSpeedForPID(pid)
+        }
     }
 
     func setEnabled(_ enabled: Bool) {

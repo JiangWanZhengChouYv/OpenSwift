@@ -35,6 +35,9 @@ struct SpeedInputField: View {
                     }
                     .onChange(of: inputText) { newValue in
                         guard isEnabled else { return }
+                        // 模型逐帧刷新会同步 inputText；若文本正是当前模型值的渲染结果，
+                        // 说明这是「同步」而非用户编辑，禁止回写 speed（否则会把平滑目标改写成中间值，卡在 ~1.1x）。
+                        guard newValue != formatSpeedForInput(speed) else { return }
                         validateAndUpdateSpeed(newValue)
                     }
                     .onReceive(NotificationCenter.default.publisher(
